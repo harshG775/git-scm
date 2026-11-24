@@ -1,25 +1,48 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useWorkspace } from "#/stores/workspace";
+import { diffId, useWorkspace, type Tab } from "#/stores/workspace";
 
-/** Opens, activates and closes files; the active file is the `?file=` search param. */
-export function useFileNav(projectId: string, active: string | null) {
+/** The route's search params. `file` and `diff` are mutually exclusive. */
+export interface TabSearch {
+    file?: string;
+    diff?: string;
+    staged?: boolean;
+}
+
+/** Id of the tab the URL points at, matching `Tab.id`. */
+export const activeIdOf = (s: TabSearch): string | null =>
+    s.file ?? (s.diff ? diffId(s.diff, s.staged === true) : null);
+
+const searchFor = (tab: Pick<Tab, "kind" | "path" | "staged">): TabSearch =>
+    tab.kind === "file" ? { file: tab.path } : { diff: tab.path, staged: tab.staged || undefined };
+
+/** Opens, activates and closes tabs; the active tab is encoded in the URL search params. */
+export function useFileNav(projectId: string, activeId: string | null) {
     const navigate = useNavigate();
 
-    const go = (file: string | null) =>
-        navigate({ to: "/p/$projectId", params: { projectId }, search: { file: file ?? undefined } });
+    const go = (tab: Pick<Tab, "kind" | "path" | "staged"> | null) =>
+        navigate({ to: "/p/$projectId", params: { projectId }, search: tab ? searchFor(tab) : {} });
+
+    const show = (tab: Pick<Tab, "kind" | "path" | "staged">) => {
+        useWorkspace.getState().closeDrawer();
+        return go(tab);
+    };
 
     return {
         open: (path: string) => {
-            const { openFile, closeDrawer } = useWorkspace.getState();
-            openFile(path);
-            closeDrawer();
-            return go(path);
+            useWorkspace.getState().openFile(path);
+            return show({ kind: "file", path });
         },
-        close: (path: string) => {
-            const tab = useWorkspace.getState().tabs.find((t) => t.path === path);
-            if (tab?.buffer !== undefined && !window.confirm(`Discard unsaved changes to ${path}?`)) return;
-            const next = useWorkspace.getState().closeFile(path, active);
-            if (next !== active) return go(next);
+        openDiff: (path: string, staged: boolean) => {
+            useWorkspace.getState().openDiff(path, staged);
+            return show({ kind: "diff", path, staged });
+        },
+        activate: (tab: Tab) => go(tab),
+        close: (id: string) => {
+            const { tabs, closeTab } = useWorkspace.getState();
+            const tab = tabs.find((t) => t.id === id);
+            if (tab?.buffer !== undefined && !window.confirm(`Discard unsaved changes to ${tab.path}?`)) return;
+            const next = closeTab(id, activeId);
+            if ((next?.id ?? null) !== activeId) return go(next);
         },
     };
 }

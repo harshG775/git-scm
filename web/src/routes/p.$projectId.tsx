@@ -3,17 +3,24 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, Navigate, createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft, Files } from "lucide-react";
 import { cn } from "cn";
+import { DiffView } from "#/components/shell/DiffView";
 import { FileView } from "#/components/shell/FileView";
 import { PanelButtons, SidebarContent } from "#/components/shell/panels";
 import { TabStrip } from "#/components/shell/TabStrip";
 import { useLiveUpdates } from "#/lib/live";
-import { projectsOptions } from "#/lib/queries";
+import { gitStatusOptions, projectsOptions } from "#/lib/queries";
+import { activeIdOf, type TabSearch } from "#/lib/use-file-nav";
 import { useWorkspace } from "#/stores/workspace";
 
 export const Route = createFileRoute("/p/$projectId")({
-    validateSearch: (search: Record<string, unknown>): { file?: string } => ({
-        file: typeof search.file === "string" && search.file ? search.file : undefined,
-    }),
+    // The active tab: `?file=<path>` for a file, `?diff=<path>&staged=true` for a diff.
+    validateSearch: (search: Record<string, unknown>): TabSearch => {
+        const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
+        const file = str(search.file);
+        return file
+            ? { file }
+            : { diff: str(search.diff), staged: search.staged === true || search.staged === "true" ? true : undefined };
+    },
     component: Shell,
 });
 
@@ -22,12 +29,16 @@ const NAV = "h-[calc(3.5rem+env(safe-area-inset-bottom))]";
 
 function Shell() {
     const { projectId } = Route.useParams();
-    const { file } = Route.useSearch();
+    const search = Route.useSearch();
+    const { file, diff } = search;
+    const staged = search.staged === true;
+    const activeId = activeIdOf(search);
     const { data: projects, isSuccess } = useQuery(projectsOptions);
     const project = projects?.find((p) => p.id === projectId);
 
     const enterProject = useWorkspace((s) => s.enterProject);
     const openFile = useWorkspace((s) => s.openFile);
+    const openDiff = useWorkspace((s) => s.openDiff);
     const sidebarOpen = useWorkspace((s) => s.sidebarOpen);
     const drawerOpen = useWorkspace((s) => s.drawerOpen);
     const closeDrawer = useWorkspace((s) => s.closeDrawer);
@@ -35,10 +46,18 @@ function Shell() {
     const live = useLiveUpdates(projectId);
 
     useEffect(() => enterProject(projectId), [projectId, enterProject]);
-    // A deep link or reload with ?file= should also have a tab.
+    // A deep link or reload with ?file= or ?diff= should also have a tab.
     useEffect(() => {
         if (file) openFile(file);
-    }, [file, openFile]);
+        else if (diff) openDiff(diff, staged);
+    }, [file, diff, staged, openFile, openDiff]);
+
+    // Changed files (staged or not, each counted once), shown as a badge on the Source Control icon.
+    const { data: git } = useQuery(gitStatusOptions(projectId));
+    const changed = git?.isRepo
+        ? new Set([...git.conflicts, ...git.staged, ...git.changes].map((c) => c.path)).size
+        : 0;
+    const badges = { git: changed };
 
     if (isSuccess && !project) return <Navigate to="/" />;
 
@@ -46,7 +65,7 @@ function Shell() {
         <div className="flex h-dvh flex-col bg-background md:flex-row">
             {/* Desktop: activity rail + sidebar column */}
             <nav className="hidden w-12 shrink-0 flex-col items-center border-r bg-sidebar py-1 md:flex">
-                <PanelButtons orientation="rail" />
+                <PanelButtons orientation="rail" badges={badges} />
                 <LiveDot live={live} className="mt-auto mb-3" />
             </nav>
             {sidebarOpen && (
@@ -72,14 +91,16 @@ function Shell() {
                     <LiveDot live={live} className="mr-4" />
                 </header>
 
-                <TabStrip projectId={projectId} active={file ?? null} />
+                <TabStrip projectId={projectId} active={activeId} />
 
                 <main className="min-h-0 flex-1">
                     {file ? (
                         <FileView projectId={projectId} path={file} />
+                    ) : diff ? (
+                        <DiffView key={activeId} projectId={projectId} path={diff} staged={staged} />
                     ) : (
                         <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
-                            Pick a file from the Explorer to start.
+                            Pick a file from the Explorer, or a change from Source Control.
                         </div>
                     )}
                 </main>
@@ -91,7 +112,7 @@ function Shell() {
                         NAV,
                     )}
                 >
-                    <PanelButtons orientation="bottom" />
+                    <PanelButtons orientation="bottom" badges={badges} />
                 </nav>
             </div>
 

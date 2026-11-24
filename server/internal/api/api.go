@@ -23,9 +23,10 @@ import (
 const maxFileSize = 5 << 20 // 5 MiB
 
 type API struct {
-	store *config.Store
-	hub   *watch.Hub
-	wmu   sync.Mutex // serializes file saves so check-and-replace is atomic between requests
+	store    *config.Store
+	hub      *watch.Hub
+	gitLocks gitLocks
+	wmu      sync.Mutex // serializes file saves so check-and-replace is atomic between requests
 }
 
 // Register mounts all /api routes on mux.
@@ -38,6 +39,7 @@ func Register(mux *http.ServeMux, store *config.Store, hub *watch.Hub) {
 	mux.HandleFunc("GET /api/p/{id}/tree", a.tree)
 	mux.HandleFunc("GET /api/p/{id}/file", a.readFile)
 	mux.HandleFunc("PUT /api/p/{id}/file", a.writeFile)
+	a.registerGit(mux)
 	mux.HandleFunc("PUT /api/p/{id}/watch", a.setWatch)
 	mux.HandleFunc("GET /api/p/{id}/events", a.events)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {

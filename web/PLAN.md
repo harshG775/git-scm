@@ -31,8 +31,8 @@ API shape: see [../PLAN.md](../PLAN.md).
 
 ## M3
 
-- [ ] Source Control panel: Staged / Changes groups, status letters, stage/unstage/discard, commit box
-- [ ] diff view, branch indicator, pull/push
+- [x] Source Control panel: Merge / Staged / Changes groups, status letters, stage/unstage/discard, commit box
+- [x] diff view (opens as a tab, `?diff=&staged=`), branch indicator, pull/push, badge on the nav icon
 
 ## M4
 

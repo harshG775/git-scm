@@ -20,6 +20,27 @@ export interface FileContent {
     etag: string;
 }
 
+export interface GitChange {
+    path: string;
+    /** Renames and copies: the path it came from. */
+    origPath?: string;
+    /** M modified, A added, D deleted, R renamed, C copied, T type change, U untracked, ! conflict */
+    status: string;
+}
+
+export interface GitStatus {
+    isRepo: boolean;
+    branch: string;
+    detached: boolean;
+    oid: string;
+    upstream: string;
+    ahead: number;
+    behind: number;
+    conflicts: GitChange[];
+    staged: GitChange[];
+    changes: GitChange[];
+}
+
 export class ApiError extends Error {
     constructor(
         public status: number,
@@ -48,6 +69,13 @@ async function request(url: string, init?: RequestInit): Promise<Response> {
 const project = (id: string) => `/api/p/${encodeURIComponent(id)}`;
 const q = (path: string) => `?path=${encodeURIComponent(path)}`;
 
+const gitPost = (id: string, action: string, body?: unknown) =>
+    request(`${project(id)}/git/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
 export const api = {
     listProjects: async (): Promise<Project[]> => (await request("/api/projects")).json(),
 
@@ -71,6 +99,19 @@ export const api = {
         const res = await request(`${project(id)}/file${q(path)}`);
         return { text: await res.text(), etag: res.headers.get("ETag") ?? "" };
     },
+
+    gitStatus: async (id: string): Promise<GitStatus> => (await request(`${project(id)}/git/status`)).json(),
+
+    gitDiff: async (id: string, path: string, staged: boolean): Promise<string> =>
+        (await request(`${project(id)}/git/diff${q(path)}${staged ? "&staged=1" : ""}`)).text(),
+
+    gitStage: (id: string, paths: string[]) => gitPost(id, "stage", { paths }),
+    gitUnstage: (id: string, paths: string[]) => gitPost(id, "unstage", { paths }),
+    gitDiscard: (id: string, paths: string[]) => gitPost(id, "discard", { paths }),
+    gitCommit: async (id: string, message: string): Promise<{ oid: string }> =>
+        (await gitPost(id, "commit", { message })).json(),
+    gitPull: async (id: string): Promise<{ output: string }> => (await gitPost(id, "pull")).json(),
+    gitPush: async (id: string): Promise<{ output: string }> => (await gitPost(id, "push")).json(),
 
     /** Tells the server which dirs and files this client's event stream should report on. */
     setWatch: async (id: string, client: string, dirs: string[], files: string[]): Promise<void> => {

@@ -3,6 +3,7 @@ import { cn } from "cn";
 import { useIsDesktop } from "#/lib/use-media-query";
 import { useWorkspace, type SidebarPanel } from "#/stores/workspace";
 import { Explorer } from "./Explorer";
+import { SourceControl } from "./SourceControl";
 
 export const PANELS: { id: SidebarPanel; label: string; icon: LucideIcon }[] = [
     { id: "explorer", label: "Explorer", icon: Files },
@@ -11,7 +12,14 @@ export const PANELS: { id: SidebarPanel; label: string; icon: LucideIcon }[] = [
 ];
 
 /** Panel switcher: a vertical rail on desktop, a bottom nav on phones. */
-export function PanelButtons({ orientation }: { orientation: "rail" | "bottom" }) {
+export function PanelButtons({
+    orientation,
+    badges = {},
+}: {
+    orientation: "rail" | "bottom";
+    /** Counts shown on a panel's icon, e.g. the number of changed files. */
+    badges?: Partial<Record<SidebarPanel, number>>;
+}) {
     const desktop = useIsDesktop();
     const panel = useWorkspace((s) => s.sidebarPanel);
     const open = useWorkspace((s) => (desktop ? s.sidebarOpen : s.drawerOpen));
@@ -36,7 +44,14 @@ export function PanelButtons({ orientation }: { orientation: "rail" | "bottom" }
                             active && "border-primary text-foreground",
                         )}
                     >
-                        <Icon className="size-5" />
+                        <span className="relative">
+                            <Icon className="size-5" />
+                            {!!badges[id] && (
+                                <span className="absolute -top-1.5 -right-2.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 font-semibold text-primary-foreground">
+                                    {badges[id]! > 99 ? "99+" : badges[id]}
+                                </span>
+                            )}
+                        </span>
                         {orientation === "bottom" && label}
                     </button>
                 );
@@ -53,7 +68,7 @@ export function SidebarContent({ projectId }: { projectId: string }) {
         case "search":
             return <Placeholder title="Search" note="Search across files is planned for M4." />;
         case "git":
-            return <Placeholder title="Source Control" note="Changes, staging and commits arrive in M3." />;
+            return <SourceControl projectId={projectId} />;
     }
 }
 

@@ -23,7 +23,7 @@ export async function checkFile(queryClient: QueryClient, projectId: string, pat
     if (!cached) return; // never loaded in this session: it will be fetched fresh when opened
 
     const { markChanged, tabs } = useWorkspace.getState();
-    const dirty = tabs.find((t) => t.path === path)?.buffer !== undefined;
+    const dirty = tabs.find((t) => t.kind === "file" && t.path === path)?.buffer !== undefined;
 
     let fresh: FileContent;
     try {
@@ -44,7 +44,8 @@ export async function checkFile(queryClient: QueryClient, projectId: string, pat
 export async function resync(queryClient: QueryClient, projectId: string): Promise<void> {
     void queryClient.invalidateQueries({ queryKey: ["tree", projectId] });
     void queryClient.invalidateQueries({ queryKey: ["git", projectId] });
-    await Promise.all(useWorkspace.getState().tabs.map((t) => checkFile(queryClient, projectId, t.path)));
+    const files = useWorkspace.getState().tabs.filter((t) => t.kind === "file");
+    await Promise.all(files.map((t) => checkFile(queryClient, projectId, t.path)));
 }
 
 /**
@@ -55,7 +56,7 @@ export async function resync(queryClient: QueryClient, projectId: string): Promi
 export function useLiveUpdates(projectId: string): boolean {
     const queryClient = useQueryClient();
     const dirs = useWorkspace(useShallow((s) => ["", ...s.expanded]));
-    const files = useWorkspace(useShallow((s) => s.tabs.map((t) => t.path)));
+    const files = useWorkspace(useShallow((s) => s.tabs.filter((t) => t.kind === "file").map((t) => t.path)));
     const [ready, setReady] = useState(false);
     const [visible, setVisible] = useState(() => !document.hidden);
 

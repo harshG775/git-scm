@@ -8,7 +8,7 @@ import { useWorkspace } from "#/stores/workspace";
 export function FileView({ projectId, path }: { projectId: string; path: string }) {
     const queryClient = useQueryClient();
     const { data, error } = useQuery(fileOptions(projectId, path));
-    const tab = useWorkspace((s) => s.tabs.find((t) => t.path === path));
+    const tab = useWorkspace((s) => s.tabs.find((t) => t.kind === "file" && t.path === path));
     const setBuffer = useWorkspace((s) => s.setBuffer);
     const markChanged = useWorkspace((s) => s.markChanged);
     const buffer = tab?.buffer;

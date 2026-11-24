@@ -11,6 +11,9 @@ API shape: see [../PLAN.md](../PLAN.md).
   check is repeated just before the atomic rename.
 - Live updates: while a client is connected, poll every ~2-3s: `git status` hash, mtimes of watched files,
   listings of watched dirs. Push changes over SSE. `fsnotify` only if polling is too slow.
+- Git runs with literal pathspecs (no globbing), no prompts, and detached from the terminal (`Setsid`), so a
+  password prompt can never hang the server. Mutations are serialized per project. Failures return git's own
+  message as 422. Pull is `--ff-only`; the first push sets `origin` as upstream. Diffs are capped at 1 MiB.
 - Flags: `--addr`, `--cert`, `--key`. Graceful shutdown.
 
 ## Done
@@ -28,9 +31,9 @@ API shape: see [../PLAN.md](../PLAN.md).
 - [x] static serving for the PWA: manifest MIME, no-cache shell, immutable `assets/`, 404 for missing assets
 
 ## M3
-- [ ] git status parser + tests
-- [ ] stage, unstage, discard, commit, diff
-- [ ] pull, push
+- [x] git status parser + tests (incl. unborn branch, renames, conflicts, subdirectory projects)
+- [x] stage, unstage, discard, commit, diff
+- [x] pull, push
 
 ## M4
 - [ ] move Vite `outDir` to `internal/ui/dist` to drop the copy step

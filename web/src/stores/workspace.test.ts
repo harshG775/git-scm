@@ -1,7 +1,8 @@
 import { beforeEach, expect, test } from "vite-plus/test";
-import { useWorkspace } from "./workspace";
+import { diffId, useWorkspace } from "./workspace";
 
 const s = () => useWorkspace.getState();
+const ids = () => s().tabs.map((t) => t.id);
 
 beforeEach(() => {
     useWorkspace.setState({
@@ -11,6 +12,7 @@ beforeEach(() => {
         sidebarPanel: "explorer",
         sidebarOpen: true,
         drawerOpen: false,
+        commitMessage: "",
     });
 });
 
@@ -18,40 +20,67 @@ test("openFile does not duplicate tabs", () => {
     s().openFile("a.ts");
     s().openFile("a.ts");
     s().openFile("b.ts");
-    expect(s().tabs.map((t) => t.path)).toEqual(["a.ts", "b.ts"]);
+    expect(ids()).toEqual(["a.ts", "b.ts"]);
+});
+
+test("a file and its staged and unstaged diffs are three separate tabs", () => {
+    s().openFile("a.ts");
+    s().openDiff("a.ts", false);
+    s().openDiff("a.ts", true);
+    s().openDiff("a.ts", true);
+    expect(ids()).toEqual(["a.ts", diffId("a.ts", false), diffId("a.ts", true)]);
+    expect(s().tabs.map((t) => t.kind)).toEqual(["file", "diff", "diff"]);
 });
 
 test("closing the active tab activates its right neighbour, else the left one", () => {
     ["a", "b", "c"].forEach(s().openFile);
-    expect(s().closeFile("b", "b")).toBe("c");
-    expect(s().closeFile("c", "c")).toBe("a");
-    expect(s().closeFile("a", "a")).toBeNull();
+    expect(s().closeTab("b", "b")?.id).toBe("c");
+    expect(s().closeTab("c", "c")?.id).toBe("a");
+    expect(s().closeTab("a", "a")).toBeNull();
     expect(s().tabs).toEqual([]);
 });
 
-test("closing a background tab keeps the active file", () => {
+test("closing a background tab keeps the active tab", () => {
     ["a", "b"].forEach(s().openFile);
-    expect(s().closeFile("a", "b")).toBe("b");
+    expect(s().closeTab("a", "b")?.id).toBe("b");
 });
 
-test("setBuffer marks one tab dirty and undefined cleans it", () => {
-    ["a", "b"].forEach(s().openFile);
+test("closing works across file and diff tabs", () => {
+    s().openFile("a");
+    s().openDiff("a", false);
+    expect(s().closeTab(diffId("a", false), diffId("a", false))?.id).toBe("a");
+});
+
+test("setBuffer touches only the file tab, never a diff tab for the same path", () => {
+    s().openFile("a");
+    s().openDiff("a", false);
     s().setBuffer("a", "edited");
-    expect(s().tabs.find((t) => t.path === "a")?.buffer).toBe("edited");
-    expect(s().tabs.find((t) => t.path === "b")?.buffer).toBeUndefined();
+    expect(s().tabs.find((t) => t.kind === "file")?.buffer).toBe("edited");
+    expect(s().tabs.find((t) => t.kind === "diff")?.buffer).toBeUndefined();
     s().setBuffer("a", undefined);
-    expect(s().tabs.find((t) => t.path === "a")?.buffer).toBeUndefined();
+    expect(s().tabs.find((t) => t.kind === "file")?.buffer).toBeUndefined();
 });
 
-test("enterProject resets tabs only when the project changes", () => {
+test("cleaning a tab clears its changed-on-disk flag", () => {
+    s().openFile("a");
+    s().setBuffer("a", "x");
+    s().markChanged("a", true);
+    s().setBuffer("a", undefined);
+    expect(s().tabs[0].changedOnDisk).toBe(false);
+});
+
+test("enterProject resets tabs and the commit draft only when the project changes", () => {
     s().enterProject("p1");
     s().openFile("a");
     s().toggleDir("src");
+    s().setCommitMessage("wip");
     s().enterProject("p1");
     expect(s().tabs).toHaveLength(1);
+    expect(s().commitMessage).toBe("wip");
     s().enterProject("p2");
     expect(s().tabs).toEqual([]);
     expect(s().expanded).toEqual([]);
+    expect(s().commitMessage).toBe("");
 });
 
 test("selectPanel: same panel collapses, other panel switches and opens", () => {

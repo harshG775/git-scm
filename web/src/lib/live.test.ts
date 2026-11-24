@@ -29,7 +29,7 @@ const tab = () => useWorkspace.getState().tabs.find((t) => t.path === path);
 beforeEach(() => {
     qc = new QueryClient();
     qc.setQueryData<FileContent>(fileKey(P, path), { text: "v1", etag: '"e1"' });
-    useWorkspace.setState({ tabs: [{ path }] });
+    useWorkspace.setState({ tabs: [{ id: path, kind: "file", path }] });
 });
 afterEach(() => vi.unstubAllGlobals());
 
