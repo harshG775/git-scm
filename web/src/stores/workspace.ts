@@ -3,6 +3,8 @@ import { persist } from "zustand/middleware";
 
 export type SidebarPanel = "explorer" | "search" | "git" | "branches";
 export type TabKind = "file" | "diff";
+/** Collapsible sections of the Branches panel. */
+export type BranchSection = "local" | "remote" | "stash";
 
 export interface Tab {
     /** A file tab's id is its path; a diff tab's id comes from `diffId`. */
@@ -32,6 +34,8 @@ interface WorkspaceState {
     drawerOpen: boolean;
     /** Source Control commit message draft, kept while switching panels. */
     commitMessage: string;
+    /** Which Branches sections are expanded (like VS Code's accordion: several can be open). */
+    branchSections: Record<BranchSection, boolean>;
 
     /** Switch project; tabs and expanded dirs belong to one project, so they reset on change. */
     enterProject: (id: string) => void;
@@ -44,6 +48,7 @@ interface WorkspaceState {
     markChanged: (path: string, changed: boolean) => void;
     toggleDir: (path: string) => void;
     setCommitMessage: (message: string) => void;
+    toggleBranchSection: (section: BranchSection) => void;
     /** Activity-bar / bottom-nav tap. Tapping the open panel collapses it, as in VS Code. */
     selectPanel: (panel: SidebarPanel, desktop: boolean) => void;
     closeDrawer: () => void;
@@ -61,6 +66,7 @@ export const useWorkspace = create<WorkspaceState>()(
             sidebarOpen: true,
             drawerOpen: false,
             commitMessage: "",
+            branchSections: { local: true, remote: false, stash: false },
 
             enterProject: (id) => {
                 if (get().projectId !== id)
@@ -108,6 +114,8 @@ export const useWorkspace = create<WorkspaceState>()(
                 })),
 
             setCommitMessage: (commitMessage) => set({ commitMessage }),
+            toggleBranchSection: (section) =>
+                set((s) => ({ branchSections: { ...s.branchSections, [section]: !s.branchSections[section] } })),
 
             selectPanel: (panel, desktop) =>
                 set((s) => {
@@ -137,6 +145,7 @@ export const useWorkspace = create<WorkspaceState>()(
                 sidebarPanel: s.sidebarPanel,
                 sidebarOpen: s.sidebarOpen,
                 commitMessage: s.commitMessage,
+                branchSections: s.branchSections,
             }),
         },
     ),

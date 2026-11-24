@@ -27,6 +27,12 @@ UX modeled on VS Code (Welcome tab, Explorer, file tabs, built-in SCM view).
 | GET | `/api/p/{id}/git/branches` | `{isRepo, head, detached, branches[]}`; current first, then most recent |
 | POST | `/api/p/{id}/git/branches` | `{name}`; creates at HEAD and switches; 204 |
 | POST | `/api/p/{id}/git/checkout` | `{name}`; existing local branch only; 422 with git's message if refused |
+| GET | `/api/p/{id}/git/remotes` | `{isRepo, remotes[], branches[]}` as of the last fetch; `hasLocal` per branch |
+| POST | `/api/p/{id}/git/fetch` | `--all --prune`; returns `{output}` |
+| POST | `/api/p/{id}/git/checkout-remote` | `{name: "origin/x"}`; creates a tracking branch and switches |
+| GET | `/api/p/{id}/git/stashes` | `{isRepo, stashes[{index, oid, branch, title, auto, time}]}` |
+| POST | `/api/p/{id}/git/stash` | `{message, includeUntracked}`; 422 if there is nothing to stash |
+| POST | `/api/p/{id}/git/stash/{apply,pop,drop}` | `{index, oid}`; refused if `oid` is no longer at `index` |
 | POST | `/api/p/{id}/git/commit` | `{message}`; returns `{oid}`; 422 with git's message on failure |
 | POST | `/api/p/{id}/git/{pull,push}` | returns `{output}`; pull is fast-forward only |
 | PUT | `/api/p/{id}/watch?client=` | `{dirs, files}` the client has expanded or open; 404 until its stream is open |

@@ -2,7 +2,7 @@ import { Files, GitBranch, GitCommitVertical, Search, type LucideIcon } from "lu
 import { cn } from "cn";
 import { useIsDesktop } from "#/lib/use-media-query";
 import { useWorkspace, type SidebarPanel } from "#/stores/workspace";
-import { Branches } from "./Branches";
+import { Branches } from "./branches/Branches";
 import { Explorer } from "./Explorer";
 import { SourceControl } from "./SourceControl";
 

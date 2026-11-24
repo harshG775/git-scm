@@ -274,3 +274,166 @@ func TestBranchSwitchEmitsGitEvent(t *testing.T) {
 		t.Errorf("event = %v, want git", ev)
 	}
 }
+
+func (e *env) sh(args ...string) string {
+	e.t.Helper()
+	out, err := exec.Command("git", append([]string{"-C", e.root}, args...)...).CombinedOutput()
+	if err != nil {
+		e.t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func (e *env) get(path string) (int, string) {
+	e.t.Helper()
+	res := e.do("GET", e.p(path), "", nil)
+	b, _ := io.ReadAll(res.Body)
+	return res.StatusCode, string(b)
+}
+
+type stashList struct {
+	IsRepo  bool `json:"isRepo"`
+	Stashes []struct {
+		Index int    `json:"index"`
+		Oid   string `json:"oid"`
+		Title string `json:"title"`
+		Auto  bool   `json:"auto"`
+	} `json:"stashes"`
+}
+
+func (e *env) stashes() stashList {
+	e.t.Helper()
+	var sl stashList
+	_, body := e.get("/git/stashes")
+	json.Unmarshal([]byte(body), &sl)
+	return sl
+}
+
+func TestStashOverHTTP(t *testing.T) {
+	e := gitEnv(t)
+	if sl := e.stashes(); !sl.IsRepo || len(sl.Stashes) != 0 {
+		t.Fatalf("initial = %+v", sl)
+	}
+	if c, body := e.post("/git/stash", `{"message":"x"}`); c != 422 || !strings.Contains(body, "No local changes") {
+		t.Errorf("nothing to stash = %d %s", c, body)
+	}
+
+	path := filepath.Join(e.root, "src", "a.txt")
+	os.WriteFile(path, []byte("work in progress"), 0o644)
+	if c, body := e.post("/git/stash", `{"message":"half done"}`); c != 204 {
+		t.Fatalf("stash = %d %s", c, body)
+	}
+	if b, _ := os.ReadFile(path); string(b) != "hello" {
+		t.Errorf("tree should be clean again, a.txt = %q", b)
+	}
+	sl := e.stashes()
+	if len(sl.Stashes) != 1 || sl.Stashes[0].Title != "half done" || sl.Stashes[0].Auto {
+		t.Fatalf("list = %+v", sl)
+	}
+	s := sl.Stashes[0]
+	body := func(index int, oid string) string {
+		b, _ := json.Marshal(map[string]any{"index": index, "oid": oid})
+		return string(b)
+	}
+
+	if c, _ := e.post("/git/stash/apply", body(s.Index, s.Oid)); c != 204 {
+		t.Fatalf("apply = %d", c)
+	}
+	if b, _ := os.ReadFile(path); string(b) != "work in progress" {
+		t.Errorf("after apply = %q", b)
+	}
+	e.sh("checkout", "-q", "--", "src/a.txt")
+
+	if c, b := e.post("/git/stash/drop", body(s.Index, "0000000000000000000000000000000000000000")); c != 422 || !strings.Contains(b, "list changed") {
+		t.Errorf("wrong oid = %d %s", c, b)
+	}
+	if c, _ := e.post("/git/stash/pop", `{"index":0}`); c != 400 {
+		t.Errorf("missing oid = %d", c)
+	}
+	if c, _ := e.post("/git/stash/pop", `{"oid":"abc"}`); c != 400 {
+		t.Errorf("missing index = %d", c)
+	}
+	if c, _ := e.post("/git/stash/pop", body(-1, s.Oid)); c != 400 {
+		t.Errorf("negative index = %d", c)
+	}
+	if n := len(e.stashes().Stashes); n != 1 {
+		t.Fatalf("refused requests changed the stash list: %d", n)
+	}
+
+	if c, _ := e.post("/git/stash/drop", body(s.Index, s.Oid)); c != 204 {
+		t.Errorf("drop = %d", c)
+	}
+	if n := len(e.stashes().Stashes); n != 0 {
+		t.Errorf("after drop = %d stashes", n)
+	}
+}
+
+func TestRemotesOverHTTP(t *testing.T) {
+	e := gitEnv(t)
+	remote := filepath.Join(t.TempDir(), "origin.git")
+	if out, err := exec.Command("git", "init", "-q", "--bare", remote).CombinedOutput(); err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	exec.Command("git", "-C", remote, "symbolic-ref", "HEAD", "refs/heads/main").Run()
+	e.sh("remote", "add", "origin", remote)
+	e.sh("push", "-qu", "origin", "main")
+
+	type rl struct {
+		IsRepo   bool     `json:"isRepo"`
+		Remotes  []string `json:"remotes"`
+		Branches []struct {
+			Ref      string `json:"ref"`
+			HasLocal bool   `json:"hasLocal"`
+		} `json:"branches"`
+	}
+	var list rl
+	_, body := e.get("/git/remotes")
+	json.Unmarshal([]byte(body), &list)
+	if !list.IsRepo || len(list.Remotes) != 1 || len(list.Branches) != 1 || list.Branches[0].Ref != "origin/main" || !list.Branches[0].HasLocal {
+		t.Fatalf("remotes = %s", body)
+	}
+
+	// Publish another branch from a second clone, fetch, check it out as a local tracking branch.
+	other := filepath.Join(t.TempDir(), "other")
+	exec.Command("git", "clone", "-q", remote, other).Run()
+	for _, args := range [][]string{{"switch", "-qc", "topic"}, {"commit", "-q", "--allow-empty", "-m", "topic work"}, {"push", "-qu", "origin", "topic"}} {
+		if out, err := exec.Command("git", append([]string{"-C", other}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("%v: %v %s", args, err, out)
+		}
+	}
+	if c, out := e.post("/git/fetch", ""); c != 200 || !strings.Contains(out, `"output"`) {
+		t.Fatalf("fetch = %d %s", c, out)
+	}
+	if c, out := e.post("/git/checkout-remote", `{"name":"origin/topic"}`); c != 204 {
+		t.Fatalf("checkout-remote = %d %s", c, out)
+	}
+	if bl := e.branches(); bl.Head != "topic" {
+		t.Errorf("head = %q", bl.Head)
+	}
+	if c, out := e.post("/git/checkout-remote", `{"name":"origin/HEAD"}`); c != 422 {
+		t.Errorf("origin/HEAD = %d %s", c, out)
+	}
+	if c, out := e.post("/git/checkout-remote", `{"name":"origin/ghost"}`); c != 422 || !strings.Contains(out, "no remote branch") {
+		t.Errorf("unknown = %d %s", c, out)
+	}
+}
+
+// Changes made outside the app (Termux, nvim) must reach the panels: the poller has to notice
+// stash and branch changes even though `git status` itself does not change.
+func TestOutsideStashAndBranchChangesEmitEvents(t *testing.T) {
+	e := gitEnv(t)
+	os.WriteFile(filepath.Join(e.root, "src", "a.txt"), []byte("edit"), 0o644)
+	e.sh("stash", "push", "-q", "-m", "outside")
+
+	s := e.subscribe("c1")
+	s.expectQuiet(150 * time.Millisecond)
+
+	e.sh("stash", "drop", "-q") // status output is identical before and after: only the stash list changed
+	if ev := s.next(2 * time.Second); ev[0] != "git" {
+		t.Errorf("stash drop event = %v, want git", ev)
+	}
+	e.sh("branch", "created-outside") // a new branch at HEAD: status output does not change either
+	if ev := s.next(2 * time.Second); ev[0] != "git" {
+		t.Errorf("branch create event = %v, want git", ev)
+	}
+}

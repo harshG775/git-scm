@@ -26,6 +26,18 @@ export const gitBranchesOptions = (projectId: string) =>
         queryFn: () => api.gitBranches(projectId),
     });
 
+export const gitRemotesOptions = (projectId: string) =>
+    queryOptions({
+        queryKey: ["git", projectId, "remotes"],
+        queryFn: () => api.gitRemotes(projectId),
+    });
+
+export const gitStashesOptions = (projectId: string) =>
+    queryOptions({
+        queryKey: ["git", projectId, "stashes"],
+        queryFn: () => api.gitStashes(projectId),
+    });
+
 export const gitDiffOptions = (projectId: string, path: string, staged: boolean) =>
     queryOptions({
         queryKey: ["git", projectId, "diff", path, staged],

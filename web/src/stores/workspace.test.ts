@@ -98,3 +98,13 @@ test("selectPanel on phone drives the drawer, not the desktop sidebar", () => {
     s().selectPanel("explorer", false);
     expect(s().drawerOpen).toBe(false);
 });
+
+test("Branches sections: Local starts open, the others closed, and each toggles on its own", () => {
+    useWorkspace.setState({ branchSections: { local: true, remote: false, stash: false } });
+    s().toggleBranchSection("remote");
+    expect(s().branchSections).toEqual({ local: true, remote: true, stash: false });
+    s().toggleBranchSection("local");
+    expect(s().branchSections).toEqual({ local: false, remote: true, stash: false });
+    s().toggleBranchSection("remote");
+    expect(s().branchSections.remote).toBe(false);
+});

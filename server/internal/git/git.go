@@ -29,6 +29,10 @@ type opts struct {
 	stdin    string
 	max      int  // stop reading after this many bytes (0 = 64 MiB); the command is killed
 	combined bool // merge stderr into the result (git prints progress and hints there)
+	// magic lets git use pathspec magic (":/" and friends) internally. Literal pathspecs would
+	// break commands that do, such as `stash --include-untracked`, which cleans with ":/". Only
+	// use it when no user-supplied path is passed.
+	magic bool
 }
 
 type result struct {
@@ -44,7 +48,10 @@ func (r Repo) run(ctx context.Context, o opts, args ...string) (result, error) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", r.Root}, args...)...)
-	cmd.Env = append(os.Environ(), "GIT_LITERAL_PATHSPECS=1", "GIT_TERMINAL_PROMPT=0", "LC_ALL=C")
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "LC_ALL=C")
+	if !o.magic {
+		cmd.Env = append(cmd.Env, "GIT_LITERAL_PATHSPECS=1")
+	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if o.stdin != "" {
 		cmd.Stdin = strings.NewReader(o.stdin)

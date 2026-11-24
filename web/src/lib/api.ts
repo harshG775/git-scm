@@ -60,6 +60,42 @@ export interface GitBranches {
     branches: GitBranch[];
 }
 
+export interface GitRemoteBranch {
+    /** "origin/feature/x" */
+    ref: string;
+    remote: string;
+    /** "feature/x" */
+    name: string;
+    oid: string;
+    subject: string;
+    /** A local branch with this name exists, so checking out just switches to it. */
+    hasLocal: boolean;
+}
+
+export interface GitRemotes {
+    isRepo: boolean;
+    remotes: string[];
+    /** As of the last fetch, most recently committed first. */
+    branches: GitRemoteBranch[];
+}
+
+export interface GitStash {
+    /** Position in the stash list; it shifts as stashes come and go, so actions also send `oid`. */
+    index: number;
+    oid: string;
+    branch: string;
+    title: string;
+    /** No message was given; `title` is then the summary of the commit it was made on. */
+    auto: boolean;
+    /** Unix seconds. */
+    time: number;
+}
+
+export interface GitStashes {
+    isRepo: boolean;
+    stashes: GitStash[];
+}
+
 export class ApiError extends Error {
     constructor(
         public status: number,
@@ -128,6 +164,18 @@ export const api = {
     /** Creates the branch at HEAD and switches to it. */
     gitCreateBranch: (id: string, name: string) => gitPost(id, "branches", { name }),
     gitCheckout: (id: string, name: string) => gitPost(id, "checkout", { name }),
+
+    gitRemotes: async (id: string): Promise<GitRemotes> => (await request(`${project(id)}/git/remotes`)).json(),
+    gitFetch: async (id: string): Promise<{ output: string }> => (await gitPost(id, "fetch")).json(),
+    /** Creates a local branch tracking `ref` ("origin/feature") and switches to it. */
+    gitCheckoutRemote: (id: string, ref: string) => gitPost(id, "checkout-remote", { name: ref }),
+
+    gitStashes: async (id: string): Promise<GitStashes> => (await request(`${project(id)}/git/stashes`)).json(),
+    gitStash: (id: string, message: string, includeUntracked: boolean) =>
+        gitPost(id, "stash", { message, includeUntracked }),
+    gitStashApply: (id: string, index: number, oid: string) => gitPost(id, "stash/apply", { index, oid }),
+    gitStashPop: (id: string, index: number, oid: string) => gitPost(id, "stash/pop", { index, oid }),
+    gitStashDrop: (id: string, index: number, oid: string) => gitPost(id, "stash/drop", { index, oid }),
 
     gitStage: (id: string, paths: string[]) => gitPost(id, "stage", { paths }),
     gitUnstage: (id: string, paths: string[]) => gitPost(id, "unstage", { paths }),

@@ -30,6 +30,14 @@ func (a *API) registerGit(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/p/{id}/git/branches", a.gitBranches)
 	mux.HandleFunc("POST /api/p/{id}/git/branches", a.gitNamed((git.Repo).CreateBranch))
 	mux.HandleFunc("POST /api/p/{id}/git/checkout", a.gitNamed((git.Repo).SwitchBranch))
+	mux.HandleFunc("GET /api/p/{id}/git/remotes", a.gitRemotes)
+	mux.HandleFunc("POST /api/p/{id}/git/fetch", a.gitNet((git.Repo).Fetch))
+	mux.HandleFunc("POST /api/p/{id}/git/checkout-remote", a.gitNamed((git.Repo).SwitchRemote))
+	mux.HandleFunc("GET /api/p/{id}/git/stashes", a.gitStashes)
+	mux.HandleFunc("POST /api/p/{id}/git/stash", a.gitStashPush)
+	mux.HandleFunc("POST /api/p/{id}/git/stash/apply", a.gitStashAct((git.Repo).StashApply))
+	mux.HandleFunc("POST /api/p/{id}/git/stash/pop", a.gitStashAct((git.Repo).StashPop))
+	mux.HandleFunc("POST /api/p/{id}/git/stash/drop", a.gitStashAct((git.Repo).StashDrop))
 	mux.HandleFunc("POST /api/p/{id}/git/commit", a.gitCommit)
 	mux.HandleFunc("POST /api/p/{id}/git/pull", a.gitNet((git.Repo).Pull))
 	mux.HandleFunc("POST /api/p/{id}/git/push", a.gitNet((git.Repo).Push))
@@ -115,6 +123,88 @@ func (a *API) gitBranches(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, list)
+}
+
+func (a *API) gitRemotes(w http.ResponseWriter, r *http.Request) {
+	_, repo, ok := a.repo(w, r)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
+	defer cancel()
+	list, err := repo.Remotes(ctx)
+	if err != nil {
+		failGit(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, list)
+}
+
+func (a *API) gitStashes(w http.ResponseWriter, r *http.Request) {
+	_, repo, ok := a.repo(w, r)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
+	defer cancel()
+	list, err := repo.Stashes(ctx)
+	if err != nil {
+		failGit(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, list)
+}
+
+func (a *API) gitStashPush(w http.ResponseWriter, r *http.Request) {
+	proj, repo, ok := a.repo(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Message          string `json:"message"`
+		IncludeUntracked bool   `json:"includeUntracked"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, "body must be {\"message\": \"...\", \"includeUntracked\": false}")
+		return
+	}
+	defer a.lock(proj.ID)()
+	ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
+	defer cancel()
+	if err := repo.StashPush(ctx, body.Message, body.IncludeUntracked); err != nil {
+		failGit(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// gitStashAct builds a handler for apply/pop/drop. The client sends the stash's position and its
+// commit id; the id guards against acting on the wrong stash when the list has shifted.
+func (a *API) gitStashAct(op func(git.Repo, context.Context, int, string) error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		proj, repo, ok := a.repo(w, r)
+		if !ok {
+			return
+		}
+		var body struct {
+			Index *int   `json:"index"`
+			Oid   string `json:"oid"`
+		}
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil || body.Index == nil || *body.Index < 0 || body.Oid == "" {
+			fail(w, http.StatusBadRequest, "body must be {\"index\": 0, \"oid\": \"...\"}")
+			return
+		}
+		defer a.lock(proj.ID)()
+		ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
+		defer cancel()
+		if err := op(repo, ctx, *body.Index, body.Oid); err != nil {
+			failGit(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 // gitNamed builds a handler for operations that take one branch name.

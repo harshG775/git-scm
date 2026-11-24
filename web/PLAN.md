@@ -36,6 +36,6 @@ API shape: see [../PLAN.md](../PLAN.md).
 
 ## M4
 
-- [x] Branches panel: create + switch, local branch list with Current / Checkout
+- [x] Branches panel as collapsible Local / Remote / Stash sections (open state remembered): create + switch, checkout; fetch and track remote branches; stash, apply, pop, drop
 
 - [ ] CodeMirror 6, command palette button, search, offline shell

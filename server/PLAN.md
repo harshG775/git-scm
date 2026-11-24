@@ -41,4 +41,9 @@ API shape: see [../PLAN.md](../PLAN.md).
 
 ## M4
 - [x] branches: list, create (+switch), checkout (git's refusal message passed through; names validated)
+- [x] remote branches (list, fetch --prune, checkout as tracking branch) and stash (push, list, apply, pop, drop).
+  Stash actions carry the stash's commit id and are refused if the list shifted, so a stale screen can never
+  act on the wrong stash. `stash --include-untracked` needs git's own pathspec magic, so it runs without
+  `GIT_LITERAL_PATHSPECS`. The poller also hashes the stash count and all branch tips, so outside `git stash`,
+  `git fetch` and `git branch` reach the panels.
 - [ ] move Vite `outDir` to `internal/ui/dist` to drop the copy step

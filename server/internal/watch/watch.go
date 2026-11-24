@@ -345,19 +345,29 @@ func kindIndex(de os.DirEntry) int {
 	}
 }
 
-// gitSig hashes `git status` so any change (stage, commit, branch switch, edits) is detected.
+// gitSig hashes what the Source Control and Branches panels show, so a change made anywhere
+// (stage, commit, branch switch, edits, stash, fetch, branch created or deleted) is detected:
+// `git status` (with the stash count) plus every branch and remote-branch tip.
 // It returns "" when the context was cancelled, and a constant when root is not a repository.
 func gitSig(ctx context.Context, root string) string {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	// --no-optional-locks: never take index.lock, so we cannot block the user's own git commands.
-	out, err := exec.CommandContext(ctx, "git", "--no-optional-locks", "-C", root, "status", "--porcelain=v2", "-z", "--branch").Output()
+	status, err := exec.CommandContext(ctx, "git", "--no-optional-locks", "-C", root, "status", "--porcelain=v2", "-z", "--branch", "--show-stash").Output()
 	if ctx.Err() != nil {
 		return ""
 	}
 	if err != nil {
 		return "norepo"
 	}
-	sum := sha1.Sum(out)
-	return hex.EncodeToString(sum[:])
+	// A failure here (for example no refs yet) just contributes nothing.
+	refs, _ := exec.CommandContext(ctx, "git", "--no-optional-locks", "-C", root, "for-each-ref", "--format=%(refname) %(objectname)", "refs/heads", "refs/remotes").Output()
+	if ctx.Err() != nil {
+		return ""
+	}
+	h := sha1.New()
+	h.Write(status)
+	h.Write([]byte{0})
+	h.Write(refs)
+	return hex.EncodeToString(h.Sum(nil))
 }
