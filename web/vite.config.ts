@@ -19,6 +19,10 @@ const config = defineConfig({
         options: { typeAware: true, typeCheck: true },
     },
     resolve: { tsconfigPaths: true },
+    server: {
+        // Forward API calls to the Go server during `vp dev`.
+        proxy: { "/api": "http://127.0.0.1:8080" },
+    },
     plugins: lazyPlugins(() => [
         devtools(),
         tailwindcss(),

@@ -1,0 +1,5 @@
+bin/
+.DS_Store
+*.pem
+server/internal/ui/dist/*
+!server/internal/ui/dist/.gitkeep
