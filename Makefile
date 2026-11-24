@@ -11,4 +11,4 @@ build: web
 	cd server && go build -o ../bin/git-csm .
 
 dev-server:
-	cd server && go run . --root ..
+	cd server && go run .

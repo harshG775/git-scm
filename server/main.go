@@ -2,37 +2,39 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
+	"github.com/git-csm/server/internal/api"
+	"github.com/git-csm/server/internal/config"
 	"github.com/git-csm/server/internal/ui"
+	"github.com/git-csm/server/internal/watch"
 )
 
 func main() {
 	addr := flag.String("addr", "127.0.0.1:8080", "listen address")
-	root := flag.String("root", ".", "directory to serve (workspace root)")
 	cert := flag.String("cert", "", "TLS certificate file (enables HTTPS)")
 	key := flag.String("key", "", "TLS key file")
 	flag.Parse()
 
-	absRoot, err := filepath.Abs(*root)
+	dir, err := config.DefaultDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+	store, err := config.Open(dir)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "root": absRoot})
-	})
-	mux.Handle("/api/", http.NotFoundHandler())
+	hub := watch.New(2 * time.Second)
+	api.Register(mux, store, hub)
 	mux.Handle("/", ui.Handler())
 
 	srv := &http.Server{
@@ -40,14 +42,16 @@ func main() {
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
+	// Open event streams would otherwise hold shutdown until the timeout.
+	srv.RegisterOnShutdown(hub.Close)
 
 	go func() {
 		var err error
 		if *cert != "" && *key != "" {
-			log.Printf("https://%s (root: %s)", *addr, absRoot)
+			log.Printf("https://%s (config: %s)", *addr, dir)
 			err = srv.ListenAndServeTLS(*cert, *key)
 		} else {
-			log.Printf("http://%s (root: %s)", *addr, absRoot)
+			log.Printf("http://%s (config: %s)", *addr, dir)
 			err = srv.ListenAndServe()
 		}
 		if !errors.Is(err, http.ErrServerClosed) {
@@ -62,10 +66,4 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctx)
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
 }

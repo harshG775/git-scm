@@ -17,6 +17,7 @@ UX modeled on VS Code (Welcome tab, Explorer, file tabs, built-in SCM view).
 | --- | --- | --- |
 | GET | `/api/health` | |
 | GET, POST | `/api/projects` | list recents; open/add `{path}` returns `{id, name, path}` |
+| DELETE | `/api/projects/{id}` | forget a project; the directory is untouched |
 | GET | `/api/p/{id}/tree?path=` | one directory level |
 | GET | `/api/p/{id}/file?path=` | returns `ETag` |
 | PUT | `/api/p/{id}/file?path=` | needs `If-Match`; 412 if changed on disk |
@@ -25,15 +26,15 @@ UX modeled on VS Code (Welcome tab, Explorer, file tabs, built-in SCM view).
 | POST | `/api/p/{id}/git/{stage,unstage,discard}` | `{paths}` |
 | POST | `/api/p/{id}/git/commit` | `{message}` |
 | POST | `/api/p/{id}/git/{pull,push}` | |
-| PUT | `/api/p/{id}/watch` | `{dirs, files}` the client has expanded or open |
-| GET | `/api/p/{id}/events` | SSE: `git`, `file {path}`, `dir {path}` |
+| PUT | `/api/p/{id}/watch?client=` | `{dirs, files}` the client has expanded or open; 404 until its stream is open |
+| GET | `/api/p/{id}/events?client=` | SSE: `ready`, `git`, `file {path}`, `dir {path}`; `client` is a random id the page picks |
 
 Errors: `{error}` JSON with a matching status code.
 
 ## Milestones
 - [x] Scaffolds
-- [ ] M1: server core + web shell (projects, tree, files)
-- [ ] M2: live updates + conflicts, PWA
+- [x] M1: server core + web shell (projects, tree, files)
+- [x] M2: live updates + conflicts, PWA
 - [ ] M3: Source Control
 - [ ] M4: polish
 

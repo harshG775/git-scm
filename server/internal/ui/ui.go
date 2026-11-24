@@ -4,6 +4,7 @@ package ui
 import (
 	"embed"
 	"io/fs"
+	"mime"
 	"net/http"
 	"path"
 	"strings"
@@ -11,6 +12,11 @@ import (
 
 //go:embed all:dist
 var dist embed.FS
+
+func init() {
+	// Not in Go's built-in table, and Termux has no /etc/mime.types to fall back on.
+	_ = mime.AddExtensionType(".webmanifest", "application/manifest+json")
+}
 
 // Handler serves the embedded SPA, falling back to index.html for client-side routes.
 func Handler() http.Handler {
@@ -26,8 +32,22 @@ func Handler() http.Handler {
 			p = "index.html"
 		}
 		if _, err := fs.Stat(sub, p); err != nil {
-			// Unknown path: let the router handle it.
-			r.URL.Path = "/"
+			// A missing file (stale hashed asset, favicon, ...) is a 404; only extensionless
+			// paths are client-side routes that the router should handle.
+			if path.Ext(p) != "" {
+				http.NotFound(w, r)
+				return
+			}
+			p, r.URL.Path = "index.html", "/"
+		}
+
+		h := w.Header()
+		if strings.HasPrefix(p, "assets/") {
+			// Filenames contain a content hash, so they never change.
+			h.Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			// The shell, service worker and manifest must be revalidated or updates never arrive.
+			h.Set("Cache-Control", "no-cache")
 		}
 		files.ServeHTTP(w, r)
 	})

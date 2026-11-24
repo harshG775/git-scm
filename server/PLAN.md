@@ -7,7 +7,8 @@ API shape: see [../PLAN.md](../PLAN.md).
 - Config + recent projects in `~/.git-csm/config.json`, created on first run.
 - Path guard: one function resolves every client path (incl. symlinks) and rejects anything outside the project root.
 - Git status: `git status --porcelain=v2 -z --branch`. VS Code's `extensions/git` (MIT) is a behavior reference.
-- ETag = mtime + size. `PUT` without a matching `If-Match` returns 412.
+- ETag = content hash (not mtime). `PUT` needs `If-Match`: 428 if missing, 412 if stale. Saves are serialized and the
+  check is repeated just before the atomic rename.
 - Live updates: while a client is connected, poll every ~2-3s: `git status` hash, mtimes of watched files,
   listings of watched dirs. Push changes over SSE. `fsnotify` only if polling is too slow.
 - Flags: `--addr`, `--cert`, `--key`. Graceful shutdown.
@@ -16,14 +17,15 @@ API shape: see [../PLAN.md](../PLAN.md).
 - [x] `/api/health`, embedded SPA with index fallback, optional TLS, Makefile
 
 ## M1
-- [ ] config load/save
-- [ ] projects API
-- [ ] path guard + tests (`..`, absolute paths, symlinks out of root)
-- [ ] tree API
-- [ ] file read/write with ETag / If-Match
+- [x] config load/save
+- [x] projects API
+- [x] path guard + tests (`..`, absolute paths, symlinks out of root)
+- [x] tree API
+- [x] file read/write with ETag / If-Match
 
 ## M2
-- [ ] watch API + SSE `/events` with polling loop; stop when no clients
+- [x] watch API + SSE `/events` with polling loop; stops when no clients
+- [x] static serving for the PWA: manifest MIME, no-cache shell, immutable `assets/`, 404 for missing assets
 
 ## M3
 - [ ] git status parser + tests
