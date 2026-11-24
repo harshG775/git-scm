@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type SidebarPanel = "explorer" | "search" | "git";
+export type SidebarPanel = "explorer" | "search" | "git" | "branches";
 export type TabKind = "file" | "diff";
 
 export interface Tab {

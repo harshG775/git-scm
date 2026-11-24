@@ -40,4 +40,5 @@ API shape: see [../PLAN.md](../PLAN.md).
 - [x] pull, push
 
 ## M4
+- [x] branches: list, create (+switch), checkout (git's refusal message passed through; names validated)
 - [ ] move Vite `outDir` to `internal/ui/dist` to drop the copy step

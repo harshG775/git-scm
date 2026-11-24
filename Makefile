@@ -1,4 +1,4 @@
-.PHONY: web server dev-server build
+.PHONY: web build run dev-server
 
 # Build the frontend and copy it where the Go binary embeds it from.
 web:
@@ -10,5 +10,11 @@ web:
 build: web
 	cd server && go build -o ../bin/git-csm .
 
+# Rebuild the frontend, then run the server: the whole app on :8080 from one process.
+run: web
+	cd server && go run .
+
+# API only, for use with `cd web && vp run dev` (app on :3000, proxied to this server).
+# The app that :8080 serves under this target is whatever `make web` last embedded.
 dev-server:
 	cd server && go run .

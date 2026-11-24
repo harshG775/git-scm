@@ -1,14 +1,16 @@
-import { Files, GitBranch, Search, type LucideIcon } from "lucide-react";
+import { Files, GitBranch, GitCommitVertical, Search, type LucideIcon } from "lucide-react";
 import { cn } from "cn";
 import { useIsDesktop } from "#/lib/use-media-query";
 import { useWorkspace, type SidebarPanel } from "#/stores/workspace";
+import { Branches } from "./Branches";
 import { Explorer } from "./Explorer";
 import { SourceControl } from "./SourceControl";
 
 export const PANELS: { id: SidebarPanel; label: string; icon: LucideIcon }[] = [
     { id: "explorer", label: "Explorer", icon: Files },
     { id: "search", label: "Search", icon: Search },
-    { id: "git", label: "Source Control", icon: GitBranch },
+    { id: "git", label: "Source Control", icon: GitCommitVertical },
+    { id: "branches", label: "Branches", icon: GitBranch },
 ];
 
 /** Panel switcher: a vertical rail on desktop, a bottom nav on phones. */
@@ -69,6 +71,8 @@ export function SidebarContent({ projectId }: { projectId: string }) {
             return <Placeholder title="Search" note="Search across files is planned for M4." />;
         case "git":
             return <SourceControl projectId={projectId} />;
+        case "branches":
+            return <Branches projectId={projectId} />;
     }
 }
 

@@ -41,6 +41,25 @@ export interface GitStatus {
     changes: GitChange[];
 }
 
+export interface GitBranch {
+    name: string;
+    current: boolean;
+    upstream: string;
+    /** Short commit id the branch points at. */
+    oid: string;
+    /** First line of that commit's message. */
+    subject: string;
+}
+
+export interface GitBranches {
+    isRepo: boolean;
+    /** Checked-out branch; "" when HEAD is detached. */
+    head: string;
+    detached: boolean;
+    /** Current branch first, then most recently committed. Empty before the first commit. */
+    branches: GitBranch[];
+}
+
 export class ApiError extends Error {
     constructor(
         public status: number,
@@ -104,6 +123,11 @@ export const api = {
 
     gitDiff: async (id: string, path: string, staged: boolean): Promise<string> =>
         (await request(`${project(id)}/git/diff${q(path)}${staged ? "&staged=1" : ""}`)).text(),
+
+    gitBranches: async (id: string): Promise<GitBranches> => (await request(`${project(id)}/git/branches`)).json(),
+    /** Creates the branch at HEAD and switches to it. */
+    gitCreateBranch: (id: string, name: string) => gitPost(id, "branches", { name }),
+    gitCheckout: (id: string, name: string) => gitPost(id, "checkout", { name }),
 
     gitStage: (id: string, paths: string[]) => gitPost(id, "stage", { paths }),
     gitUnstage: (id: string, paths: string[]) => gitPost(id, "unstage", { paths }),

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/git-csm/server/internal/git"
 )
@@ -183,5 +184,93 @@ func TestGitMutationsAreSerialized(t *testing.T) {
 	}
 	if n := len(e.status().Staged); n != 10 {
 		t.Errorf("staged %d files, want 10", n)
+	}
+}
+
+type branchList struct {
+	IsRepo   bool   `json:"isRepo"`
+	Head     string `json:"head"`
+	Detached bool   `json:"detached"`
+	Branches []struct {
+		Name    string `json:"name"`
+		Current bool   `json:"current"`
+	} `json:"branches"`
+}
+
+func (e *env) branches() branchList {
+	e.t.Helper()
+	var bl branchList
+	res := e.do("GET", e.p("/git/branches"), "", nil)
+	if res.StatusCode != 200 {
+		e.t.Fatalf("branches = %d", res.StatusCode)
+	}
+	json.NewDecoder(res.Body).Decode(&bl)
+	return bl
+}
+
+func TestBranchesOverHTTP(t *testing.T) {
+	e := gitEnv(t)
+	if bl := e.branches(); !bl.IsRepo || bl.Head != "main" || len(bl.Branches) != 1 || !bl.Branches[0].Current {
+		t.Fatalf("initial = %+v", bl)
+	}
+
+	if c, body := e.post("/git/branches", `{"name":"feature/ui"}`); c != 204 {
+		t.Fatalf("create = %d %s", c, body)
+	}
+	if bl := e.branches(); bl.Head != "feature/ui" || len(bl.Branches) != 2 {
+		t.Fatalf("after create = %+v", bl)
+	}
+	if st := e.status(); st.Branch != "feature/ui" {
+		t.Errorf("status branch = %q", st.Branch)
+	}
+
+	if c, body := e.post("/git/checkout", `{"name":"main"}`); c != 204 {
+		t.Fatalf("checkout = %d %s", c, body)
+	}
+	if bl := e.branches(); bl.Head != "main" {
+		t.Errorf("after checkout head = %q", bl.Head)
+	}
+
+	// git's own messages come back as 422, and a refused request changes nothing.
+	if c, body := e.post("/git/branches", `{"name":"main"}`); c != 422 || !strings.Contains(body, "already exists") {
+		t.Errorf("duplicate = %d %s", c, body)
+	}
+	if c, body := e.post("/git/branches", `{"name":"bad name"}`); c != 422 || !strings.Contains(body, "not a valid branch name") {
+		t.Errorf("invalid = %d %s", c, body)
+	}
+	if c, body := e.post("/git/checkout", `{"name":"ghost"}`); c != 422 || !strings.Contains(body, "no local branch") {
+		t.Errorf("unknown = %d %s", c, body)
+	}
+	if c, _ := e.post("/git/checkout", `{"name":"   "}`); c != 400 {
+		t.Errorf("blank = %d", c)
+	}
+	if c, _ := e.post("/git/branches", `nope`); c != 400 {
+		t.Errorf("bad json = %d", c)
+	}
+	if bl := e.branches(); bl.Head != "main" || len(bl.Branches) != 2 {
+		t.Errorf("rejected requests changed state: %+v", bl)
+	}
+}
+
+func TestBranchesOutsideRepo(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(os.TempDir()))
+	e := newEnv(t)
+	os.RemoveAll(filepath.Join(e.root, ".git"))
+	if bl := e.branches(); bl.IsRepo || len(bl.Branches) != 0 {
+		t.Errorf("not a repo = %+v", bl)
+	}
+}
+
+// Branch switches and the git poller must agree: switching must show up as a "git" event.
+func TestBranchSwitchEmitsGitEvent(t *testing.T) {
+	e := gitEnv(t)
+	s := e.subscribe("c1")
+	s.expectQuiet(150 * time.Millisecond)
+	e.post("/git/branches", `{"name":"topic"}`)
+	if ev := s.next(2 * time.Second); ev[0] != "git" {
+		t.Errorf("event = %v, want git", ev)
 	}
 }

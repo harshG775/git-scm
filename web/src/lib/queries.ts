@@ -20,6 +20,12 @@ export const gitStatusOptions = (projectId: string) =>
         queryFn: () => api.gitStatus(projectId),
     });
 
+export const gitBranchesOptions = (projectId: string) =>
+    queryOptions({
+        queryKey: ["git", projectId, "branches"],
+        queryFn: () => api.gitBranches(projectId),
+    });
+
 export const gitDiffOptions = (projectId: string, path: string, staged: boolean) =>
     queryOptions({
         queryKey: ["git", projectId, "diff", path, staged],

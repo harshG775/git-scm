@@ -36,4 +36,6 @@ API shape: see [../PLAN.md](../PLAN.md).
 
 ## M4
 
+- [x] Branches panel: create + switch, local branch list with Current / Checkout
+
 - [ ] CodeMirror 6, command palette button, search, offline shell

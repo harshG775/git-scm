@@ -27,6 +27,9 @@ func (a *API) registerGit(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/p/{id}/git/stage", a.gitPaths((git.Repo).Stage))
 	mux.HandleFunc("POST /api/p/{id}/git/unstage", a.gitPaths((git.Repo).Unstage))
 	mux.HandleFunc("POST /api/p/{id}/git/discard", a.gitPaths((git.Repo).Discard))
+	mux.HandleFunc("GET /api/p/{id}/git/branches", a.gitBranches)
+	mux.HandleFunc("POST /api/p/{id}/git/branches", a.gitNamed((git.Repo).CreateBranch))
+	mux.HandleFunc("POST /api/p/{id}/git/checkout", a.gitNamed((git.Repo).SwitchBranch))
 	mux.HandleFunc("POST /api/p/{id}/git/commit", a.gitCommit)
 	mux.HandleFunc("POST /api/p/{id}/git/pull", a.gitNet((git.Repo).Pull))
 	mux.HandleFunc("POST /api/p/{id}/git/push", a.gitNet((git.Repo).Push))
@@ -96,6 +99,47 @@ func (a *API) gitDiff(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	io.WriteString(w, diff)
+}
+
+func (a *API) gitBranches(w http.ResponseWriter, r *http.Request) {
+	_, repo, ok := a.repo(w, r)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
+	defer cancel()
+	list, err := repo.Branches(ctx)
+	if err != nil {
+		failGit(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, list)
+}
+
+// gitNamed builds a handler for operations that take one branch name.
+func (a *API) gitNamed(op func(git.Repo, context.Context, string) error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		proj, repo, ok := a.repo(w, r)
+		if !ok {
+			return
+		}
+		var body struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil || strings.TrimSpace(body.Name) == "" {
+			fail(w, http.StatusBadRequest, "body must be {\"name\": \"...\"}")
+			return
+		}
+		defer a.lock(proj.ID)()
+		ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
+		defer cancel()
+		if err := op(repo, ctx, strings.TrimSpace(body.Name)); err != nil {
+			failGit(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 // gitPaths builds a handler for operations on a list of project-relative paths.
