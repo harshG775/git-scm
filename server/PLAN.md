@@ -14,6 +14,10 @@ API shape: see [../PLAN.md](../PLAN.md).
 - Git runs with literal pathspecs (no globbing), no prompts, and detached from the terminal (`Setsid`), so a
   password prompt can never hang the server. Mutations are serialized per project. Failures return git's own
   message as 422. Pull is `--ff-only`; the first push sets `origin` as upstream. Diffs are capped at 1 MiB.
+- No login, so the browser's origin rules are the protection (`internal/guard`): every request must name a
+  localhost or IP-literal Host (blocks DNS rebinding; others via `--allow-hosts`), and any Origin must be the
+  server itself (blocks cross-site POSTs). The Vite dev proxy forwards only same-origin requests (see
+  `vite.config.ts`). Anything new that is dangerous (terminal, credentials) depends on this.
 - Flags: `--addr`, `--cert`, `--key`. Graceful shutdown.
 
 ## Done

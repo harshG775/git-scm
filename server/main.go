@@ -8,11 +8,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/git-csm/server/internal/api"
 	"github.com/git-csm/server/internal/config"
+	"github.com/git-csm/server/internal/guard"
 	"github.com/git-csm/server/internal/ui"
 	"github.com/git-csm/server/internal/watch"
 )
@@ -21,6 +23,7 @@ func main() {
 	addr := flag.String("addr", "127.0.0.1:8080", "listen address")
 	cert := flag.String("cert", "", "TLS certificate file (enables HTTPS)")
 	key := flag.String("key", "", "TLS key file")
+	allowHosts := flag.String("allow-hosts", "", "extra host names to accept, comma-separated (e.g. phone.local); localhost and IP addresses are always accepted")
 	flag.Parse()
 
 	dir, err := config.DefaultDir()
@@ -39,7 +42,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:              *addr,
-		Handler:           mux,
+		Handler:           guard.Wrap(mux, strings.Split(*allowHosts, ",")),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	// Open event streams would otherwise hold shutdown until the timeout.
