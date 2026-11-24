@@ -3,25 +3,39 @@
 Mobile-first PWA for source control + code browsing. Go server in Termux serves the app over localhost HTTPS.
 UX modeled on VS Code (Welcome tab, Explorer, file tabs, built-in SCM view).
 
-## Stack
-- `web/`: React, Vite+ (`vp`), TanStack Router + Query, Zustand, shadcn + Tailwind v4, CodeMirror 6 (planned)
-- `server/`: Go stdlib; shells out to `git`; embeds the web build (`go:embed`)
-- Plain two-folder repo, no JS monorepo. REST/JSON, hand-written types.
+- Backend plan: [server/PLAN.md](server/PLAN.md)
+- Frontend plan: [web/PLAN.md](web/PLAN.md)
 
-## Decisions
-- No fixed root: open a project by path from the Welcome tab. Recents + config in `~/.git-csm/config.json`.
-- Every client path goes through one guard that rejects paths outside the project root.
-- State: server data in Query, UI/session in Zustand, active file in the URL.
-- Git: `git status --porcelain=v2 -z --branch`. VS Code's `extensions/git` (MIT) is a behavior reference only.
-- UI: drawer sidebar + bottom nav on phones, VS Code layout at `md+`. Snap-scroll tab strip. 44px touch targets.
-- Dev: `vp dev` (:3000) proxies `/api` to Go (:8080). Prod: one binary, optional TLS (`--cert --key`).
+## Shared
+- Plain two-folder repo, no JS monorepo. REST/JSON, hand-written types (OpenAPI via `huma` maybe later).
+- No fixed root: open a project by path from the Welcome tab; it gets an `id`. All paths are relative to the project.
+- External edits (nvim, file manager, git in Termux): server polls, pushes SSE events, client invalidates queries.
+- Dev: `vp dev` (:3000) proxies `/api` to Go (:8080). Prod: `make build` makes one binary with the web app embedded.
+
+## API contract
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/health` | |
+| GET, POST | `/api/projects` | list recents; open/add `{path}` returns `{id, name, path}` |
+| GET | `/api/p/{id}/tree?path=` | one directory level |
+| GET | `/api/p/{id}/file?path=` | returns `ETag` |
+| PUT | `/api/p/{id}/file?path=` | needs `If-Match`; 412 if changed on disk |
+| GET | `/api/p/{id}/git/status` | branch, ahead/behind, staged, changes, untracked |
+| GET | `/api/p/{id}/git/diff?path=&staged=` | |
+| POST | `/api/p/{id}/git/{stage,unstage,discard}` | `{paths}` |
+| POST | `/api/p/{id}/git/commit` | `{message}` |
+| POST | `/api/p/{id}/git/{pull,push}` | |
+| PUT | `/api/p/{id}/watch` | `{dirs, files}` the client has expanded or open |
+| GET | `/api/p/{id}/events` | SSE: `git`, `file {path}`, `dir {path}` |
+
+Errors: `{error}` JSON with a matching status code.
 
 ## Milestones
-- [x] Scaffolds: web (router, query, store, shadcn), server (health, embedded SPA), Makefile
-- [ ] M1 backend: config file, projects API, path guard (+tests), tree, file read/write
-- [ ] M2 shell: responsive layout, Welcome tab, Explorer, tabs, textarea file view, PWA
-- [ ] M3 SCM: status, stage/unstage/discard/commit, diff, SCM panel, branch, pull/push
-- [ ] M4 polish: CodeMirror, command palette, search, HTTPS on phone, offline shell
+- [x] Scaffolds
+- [ ] M1: server core + web shell (projects, tree, files)
+- [ ] M2: live updates + conflicts, PWA
+- [ ] M3: Source Control
+- [ ] M4: polish
 
 ## Open
-- OpenAPI (`huma`) later? WebSocket vs SSE for live updates? Terminal in scope?
+- Terminal in scope? (Would need a WebSocket.)
