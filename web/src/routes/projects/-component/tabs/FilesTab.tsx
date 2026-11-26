@@ -37,8 +37,17 @@ const toTreeEntry = (entry: Entry): TreeEntry<Entry> => ({
     data: entry,
 });
 
-export function FilesTab({ projectId }: { projectId: string }) {
-    const [selected, setSelected] = useState<string>();
+export function FilesTab({
+    projectId,
+    activePath,
+    onOpenFile,
+}: {
+    projectId: string;
+    /** path of the file shown in the editor, highlighted in the tree */
+    activePath?: string;
+    /** a single tap previews the file (replaced by the next one); `pin` keeps it, like a double-click */
+    onOpenFile: (path: string, pin?: boolean) => void;
+}) {
     // expanded dirs live in the workspace store: they are also what the live-update stream watches
     const expanded = useWorkspace((s) => s.expanded);
     const toggleDir = useWorkspace((s) => s.toggleDir);
@@ -163,8 +172,9 @@ export function FilesTab({ projectId }: { projectId: string }) {
                                     view="list"
                                     entries={matches.slice(0, MAX_RESULTS)}
                                     renderMeta={renderMeta}
-                                    selectedPath={selected}
-                                    onSelect={(entry) => setSelected(entry.path)}
+                                    selectedPath={activePath}
+                                    onSelect={(entry) => onOpenFile(entry.path)}
+                                    onOpen={(entry) => onOpenFile(entry.path, true)}
                                 />
                                 <p role="status" className="px-3 py-2 text-xs text-muted-foreground">
                                     {matches.length > MAX_RESULTS
@@ -183,8 +193,9 @@ export function FilesTab({ projectId }: { projectId: string }) {
                             expanded={expanded}
                             renderMeta={renderMeta}
                             onToggleFolder={(node) => toggleDir(node.path)}
-                            selectedPath={selected}
-                            onSelect={(entry) => setSelected(entry.path)}
+                            selectedPath={activePath}
+                            onSelect={(entry) => onOpenFile(entry.path)}
+                            onOpen={(entry) => onOpenFile(entry.path, true)}
                         />
                     )}
                 </CollapsibleContent>

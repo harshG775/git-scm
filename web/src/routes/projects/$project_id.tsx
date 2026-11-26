@@ -29,6 +29,7 @@ import { ChangesTab } from "./-component/tabs/ChangesTab";
 import { FilesTab } from "./-component/tabs/FilesTab";
 import { PullRequestsTab } from "./-component/tabs/PullRequestsTab";
 import { StashTab } from "./-component/tabs/StashTab";
+import { FileViewer } from "./-component/FileViewer";
 import { SyncButton, SyncError, useSync } from "./-component/sync";
 import { TabStrip, type EditorTab } from "./-component/TabStrip";
 
@@ -45,28 +46,6 @@ const NAV_ITEMS: { id: NavTab; label: string; icon: LucideIcon; count?: number }
     { id: "branches", label: "Branches", icon: GitBranch },
     { id: "stash", label: "Stash", icon: Archive, count: 2 },
     { id: "prs", label: "PRs", icon: GitPullRequest, count: 3 },
-];
-
-// mock file content: long lines scroll sideways, many lines scroll down
-const SAMPLE_CODE = Array.from({ length: 60 }, (_, i) => {
-    const n = String(i + 1).padStart(2, " ");
-    return i % 5 === 0
-        ? `${n}  const handler${i} = async (request: Request, context: { params: Record<string, string>; signal: AbortSignal }) => fetch(\`/api/items/\${context.params.id}?page=${i}\`, { signal: context.signal });`
-        : `${n}  const value${i} = compute(${i}, "line ${i}");`;
-}).join("\n");
-
-// mock tabs, replace with real tab state
-const MOCK_TABS: EditorTab[] = [
-    { id: "package.json", name: "package.json", pinned: true },
-    { id: "styles.css", name: "styles.css", git: "M" },
-    { id: "route", name: "$project_id.tsx", git: "M", dirty: true },
-    { id: "route:index", name: "$project_id.tsx", suffix: "(Index)", git: "M", readOnly: true },
-    { id: "route:wt", name: "styles.css", suffix: "(Working Tree)", git: "M", readOnly: true },
-    { id: "FilesTab.tsx", name: "FilesTab.tsx", git: "A" },
-    { id: "notes.md", name: "notes.md", git: "U", dirty: true },
-    { id: "old.ts", name: "old.ts", git: "D", readOnly: true },
-    { id: "README.md", name: "README.md", preview: true },
-    { id: "terminal", name: "terminal", kind: "terminal" },
 ];
 
 // mock terminal session, replace with a real pty
@@ -162,6 +141,11 @@ function LiveDot({ live }: { live: boolean }) {
 
 function RouteComponent() {
     const { project_id } = Route.useParams();
+    // keyed: switching project remounts the workspace, so no tabs, searches or folders leak across
+    return <Workspace key={project_id} project_id={project_id} />;
+}
+
+function Workspace({ project_id }: { project_id: string }) {
     const { containerRef, onScroll, snapTo } = usePanelSnap();
     // expanded dirs belong to one project; switching resets them. Live updates refresh the tree on outside edits.
     const enterProject = useWorkspace((s) => s.enterProject);
@@ -195,24 +179,56 @@ function RouteComponent() {
     const [active, setActive] = useState<NavTab>("files");
     // tabs stay mounted so their state survives switching; the inactive ones are hidden
     const mode = (tab: NavTab) => (tab === active ? "visible" : "hidden");
-    const [tabs, setTabs] = useState<EditorTab[]>(MOCK_TABS);
-    const [activeId, setActiveId] = useState<string | null>("route");
+    const [tabs, setTabs] = useState<EditorTab[]>([]);
+    const [activeId, setActiveId] = useState<string | null>(null);
     const activeTab = tabs.find((t) => t.id === activeId);
-    const openGraph = () => {
-        // start the slide first, then mount the (heavy) graph in a transition so the
-        // first render doesn't block the main thread and make the scroll jump
+    // open (or switch to) an editor tab. On a phone the editor is a separate panel, so slide to it first,
+    // then mount the tab in a transition: a heavy first render (the graph, a big file) can't stall the slide.
+    const openTab = (tab: EditorTab) => {
         snapTo("editor");
         requestAnimationFrame(() =>
             startTransition(() => {
-                setTabs((current) =>
-                    current.some((tab) => tab.id === "git-graph")
-                        ? current
-                        : [...current, { id: "git-graph", name: "Git Graph", kind: "graph" }],
-                );
-                setActiveId("git-graph");
+                setTabs((current) => (current.some((t) => t.id === tab.id) ? current : [...current, tab]));
+                setActiveId(tab.id);
             }),
         );
     };
+    const openGraph = () => openTab({ id: "git-graph", name: "Git Graph", kind: "graph" });
+    // VS Code preview tabs: a tap opens an italic preview that the next tap replaces; a double-tap
+    // (or opening an already-open preview again with `pin`) keeps it.
+    const openFile = (path: string, pin = false) => {
+        const id = `file:${path}`;
+        snapTo("editor");
+        requestAnimationFrame(() =>
+            startTransition(() => {
+                setTabs((current) => {
+                    const existing = current.find((t) => t.id === id);
+                    if (existing) {
+                        return pin && existing.preview
+                            ? current.map((t) => (t.id === id ? { ...t, preview: false } : t))
+                            : current;
+                    }
+                    const tab: EditorTab = {
+                        id,
+                        name: path.slice(path.lastIndexOf("/") + 1),
+                        path,
+                        readOnly: true,
+                        preview: !pin,
+                    };
+                    const replace = pin ? -1 : current.findIndex((t) => t.preview && t.path);
+                    return replace === -1 ? [...current, tab] : current.map((t, i) => (i === replace ? tab : t));
+                });
+                setActiveId(id);
+            }),
+        );
+    };
+
+    // tell the live-update stream which files are open, so outside edits refresh them
+    useEffect(() => {
+        useWorkspace.setState({
+            tabs: tabs.flatMap((t) => (t.path ? [{ id: t.path, kind: "file" as const, path: t.path }] : [])),
+        });
+    }, [tabs]);
 
     return (
         <div
@@ -259,7 +275,7 @@ function RouteComponent() {
                 >
                     <ErrorBoundary resetKeys={[project_id]} title="The sidebar failed to load">
                         <Activity mode={mode("files")}>
-                            <FilesTab projectId={project_id} />
+                            <FilesTab projectId={project_id} activePath={activeTab?.path} onOpenFile={openFile} />
                         </Activity>
                         <Activity mode={mode("changes")}>
                             <ChangesTab />
@@ -359,8 +375,8 @@ function RouteComponent() {
                                     <span className="animate-pulse">▍</span>
                                 </div>
                             </div>
-                        ) : activeTab ? (
-                            <pre className="w-max min-w-full font-mono text-xs leading-5">{SAMPLE_CODE}</pre>
+                        ) : activeTab?.path ? (
+                            <FileViewer projectId={project_id} path={activeTab.path} />
                         ) : (
                             "No file open"
                         )}

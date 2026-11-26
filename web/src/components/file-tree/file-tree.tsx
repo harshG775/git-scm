@@ -21,8 +21,10 @@ export type FileTreeProps<T = unknown> = {
     /** show how many files are below each folder */
     showFolderCount?: boolean;
     selectedPath?: string;
-    /** a file row was activated (click, Enter, Space) */
+    /** a file row was activated with a single click or Space */
     onSelect?: (entry: TreeEntry<T>, node: TreeNode<T>) => void;
+    /** a file row was opened for keeps: double-click or Enter. Without it these fall back to `onSelect`. */
+    onOpen?: (entry: TreeEntry<T>, node: TreeNode<T>) => void;
     /** a folder was opened or closed; use it to lazy-load children */
     onToggleFolder?: (node: TreeNode<T>, open: boolean) => void;
     /** right-aligned, non-interactive: status letters, +/- counts */
@@ -45,6 +47,7 @@ export function FileTree<T = unknown>({
     showFolderCount = false,
     selectedPath,
     onSelect,
+    onOpen,
     onToggleFolder,
     renderMeta,
     renderActions,
@@ -73,9 +76,9 @@ export function FileTree<T = unknown>({
         onToggleFolder?.(node, !open);
     };
 
-    const activate = (node: TreeNode<T>) => {
+    const activate = (node: TreeNode<T>, keep = false) => {
         if (node.kind === "folder") toggle(node);
-        else if (node.entry) onSelect?.(node.entry, node);
+        else if (node.entry) (keep ? (onOpen ?? onSelect) : onSelect)?.(node.entry, node);
     };
 
     const focusRow = (index: number) =>
@@ -119,6 +122,8 @@ export function FileTree<T = unknown>({
                 }
                 break;
             case "Enter":
+                activate(node, true);
+                break;
             case " ":
                 activate(node);
                 break;
@@ -144,6 +149,7 @@ export function FileTree<T = unknown>({
                         aria-expanded={isFolder ? open : undefined}
                         tabIndex={node.path === tabStop ? 0 : -1}
                         onClick={() => activate(node)}
+                        onDoubleClick={() => node.kind === "file" && activate(node, true)}
                         onKeyDown={(event) => onKeyDown(event, index)}
                         onFocus={() => setActivePath(node.path)}
                         style={{ paddingLeft: BASE_PAD + depth * INDENT }}

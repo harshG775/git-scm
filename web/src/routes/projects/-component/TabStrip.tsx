@@ -24,6 +24,8 @@ export interface EditorTab {
     /** Pinned tabs sit first, can't be closed by accident and survive "Close All". */
     pinned?: boolean;
     readOnly?: boolean;
+    /** Project-relative path of a real file; tabs without one are mock content. */
+    path?: string;
     /** Defaults to a file. A terminal tab has no git status and shows a shell instead of code. */
     kind?: "file" | "terminal" | "graph";
 }
