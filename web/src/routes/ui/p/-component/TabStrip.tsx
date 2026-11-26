@@ -82,7 +82,7 @@ export function TabStrip({
     const idx = active ? tabs.indexOf(active) : -1;
 
     return (
-        <div className="flex h-10 shrink-0 border-b border-border bg-sidebar font-mono text-xs">
+        <>
             <div ref={strip} role="tablist" className="flex min-w-0 flex-1 overflow-x-auto scrollbar-none">
                 {tabs.map((tab) => {
                     const isActive = tab.id === activeId;
@@ -184,6 +184,6 @@ export function TabStrip({
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
-        </div>
+        </>
     );
 }

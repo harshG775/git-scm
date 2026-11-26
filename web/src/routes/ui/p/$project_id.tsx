@@ -8,10 +8,14 @@ import {
     Folder,
     GitBranch,
     GitPullRequest,
+    PanelLeft,
+    PanelRight,
     RefreshCw,
     type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
+import { Button } from "#/components/ui/button";
+import { usePanelSnap } from "#/contexts/PanelSnapContext";
 import { cn } from "#/lib/utils";
 import { BranchesTab } from "./-component/tabs/BranchesTab";
 import { ChangesTab } from "./-component/tabs/ChangesTab";
@@ -70,16 +74,22 @@ const TERMINAL_SESSION: { cmd: string; out?: string }[] = [
 
 function RouteComponent() {
     const { project_id } = Route.useParams();
+    const { containerRef, onScroll, snapTo } = usePanelSnap();
     const [active, setActive] = useState<NavTab>("files");
     const [tabs, setTabs] = useState<EditorTab[]>(MOCK_TABS);
     const [activeId, setActiveId] = useState<string | null>("route");
     const activeTab = tabs.find((t) => t.id === activeId);
 
     return (
-        <div className="flex h-dvh snap-x snap-mandatory overflow-x-auto overscroll-x-contain bg-background text-foreground scrollbar-none">
+        <div
+            ref={containerRef}
+            onScroll={onScroll}
+            className="flex h-dvh overflow-x-auto overscroll-x-contain bg-background text-foreground scrollbar-none"
+        >
             <div
                 aria-label="Primary sidebar"
-                className="flex flex-col w-[90%] max-w-lg shrink-0 snap-center bg-sidebar text-sidebar-foreground"
+                data-snap-panel="sidebar"
+                className="flex flex-col w-[100%] max-w-lg shrink-0 bg-sidebar text-sidebar-foreground"
             >
                 <header className="flex h-10 items-center justify-between gap-2 border-b border-sidebar-border px-2 text-xs">
                     <div className="flex h-10 items-center justify-between gap-1 text-xs">
@@ -102,13 +112,20 @@ function RouteComponent() {
                             main
                         </button>
                     </div>
-                    <button
-                        type="button"
-                        aria-label="Sync Changes"
-                        className="ml-auto flex h-10 min-w-0 items-center gap-1 rounded-lg px-2 text-xs text-muted-foreground active:bg-sidebar-accent"
-                    >
-                        <RefreshCw className="size-4 shrink-0" />
-                    </button>
+                    <div className="ml-auto flex items-center">
+                        <Button type="button" aria-label="Sync Changes" variant="ghost" size="icon">
+                            <RefreshCw className="size-4" />
+                        </Button>
+                        <Button
+                            type="button"
+                            aria-label="Show editor"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => snapTo("editor")}
+                        >
+                            <PanelRight className="size-4" />
+                        </Button>
+                    </div>
                 </header>
                 <section
                     aria-label={active}
@@ -164,8 +181,19 @@ function RouteComponent() {
                     })}
                 </nav>
             </div>
-            <section aria-label="Editor" className="flex min-h-0 w-full shrink-0 snap-center flex-col">
-                <TabStrip tabs={tabs} setTabs={setTabs} activeId={activeId} setActiveId={setActiveId} />
+            <section aria-label="Editor" data-snap-panel="editor" className="flex min-h-0 w-full shrink-0 flex-col">
+                <div className="flex items-center h-10 shrink-0 border-b border-border bg-sidebar font-mono text-xs">
+                    <Button
+                        type="button"
+                        aria-label="Show sidebar"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => snapTo("sidebar")}
+                    >
+                        <PanelLeft className="size-4" />
+                    </Button>
+                    <TabStrip tabs={tabs} setTabs={setTabs} activeId={activeId} setActiveId={setActiveId} />
+                </div>
                 <section className="min-h-0 flex-1 overflow-auto p-3 text-sm">
                     {activeTab?.kind === "terminal" ? (
                         <div className="w-max min-w-full font-mono text-xs leading-5">

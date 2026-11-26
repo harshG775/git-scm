@@ -4,6 +4,7 @@ import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
+import { PanelSnapProvider } from "#/contexts/PanelSnapContext";
 
 import "../styles.css";
 
@@ -14,7 +15,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootComponent() {
     return (
         <>
-            <Outlet />
+            <PanelSnapProvider>
+                <Outlet />
+            </PanelSnapProvider>
             <TanStackDevtools
                 config={{
                     position: "bottom-right",
