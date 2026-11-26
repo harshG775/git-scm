@@ -25,7 +25,7 @@ import { PullRequestsTab } from "./-component/tabs/PullRequestsTab";
 import { StashTab } from "./-component/tabs/StashTab";
 import { TabStrip, type EditorTab } from "./-component/TabStrip";
 
-export const Route = createFileRoute("/ui/p/$project_id")({
+export const Route = createFileRoute("/projects/$project_id")({
     component: RouteComponent,
 });
 
