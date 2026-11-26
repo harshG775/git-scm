@@ -1,7 +1,14 @@
-import { Menu } from "@base-ui/react/menu";
 import { Ellipsis, FileCode, FileText, Lock, Pin, SquareTerminal, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { cn } from "#/lib/utils";
+import { buttonVariants } from "#/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "#/components/ui/dropdown-menu";
 export type GitLetter = "M" | "A" | "U" | "D";
 
 export interface EditorTab {
@@ -30,9 +37,6 @@ const GIT_COLOR: Record<GitLetter, string> = {
 
 const tabIcon = (tab: EditorTab) =>
     tab.kind === "terminal" ? SquareTerminal : /\.(tsx?|jsx?|css|json|go)$/.test(tab.name) ? FileCode : FileText;
-
-const menuItem =
-    "flex min-h-11 cursor-default items-center rounded-md px-3 outline-none data-disabled:opacity-40 data-highlighted:bg-accent data-highlighted:text-accent-foreground";
 
 export function TabStrip({
     tabs,
@@ -132,70 +136,54 @@ export function TabStrip({
                 })}
             </div>
 
-            <Menu.Root>
-                <Menu.Trigger
+            <DropdownMenu>
+                <DropdownMenuTrigger
+                    type="button"
                     aria-label="Tab actions"
-                    className="flex w-10 shrink-0 items-center justify-center border-l border-border text-muted-foreground active:bg-sidebar-accent data-popup-open:bg-sidebar-accent [&_svg]:size-4"
+                    className={cn(
+                        buttonVariants({ variant: "ghost", size: "icon" }),
+                        "h-full w-10 shrink-0 rounded-none border-l border-border text-muted-foreground data-popup-open:bg-sidebar-accent",
+                    )}
                 >
                     <Ellipsis />
-                </Menu.Trigger>
-                <Menu.Portal>
-                    <Menu.Positioner align="end" sideOffset={4} className="z-50">
-                        <Menu.Popup className="min-w-56 rounded-lg border border-sidebar-border bg-popover p-1 text-sm text-popover-foreground shadow-md outline-none">
-                            <Menu.Item
-                                className={menuItem}
-                                disabled={!active}
-                                onClick={() => active && close([active.id], true)}
-                            >
-                                Close
-                            </Menu.Item>
-                            <Menu.Item
-                                className={menuItem}
-                                disabled={!active}
-                                onClick={() => active && close(tabs.filter((t) => t.id !== active.id).map((t) => t.id))}
-                            >
-                                Close Others
-                            </Menu.Item>
-                            <Menu.Item
-                                className={menuItem}
-                                disabled={idx < 0 || idx === tabs.length - 1}
-                                onClick={() => close(tabs.slice(idx + 1).map((t) => t.id))}
-                            >
-                                Close to the Right
-                            </Menu.Item>
-                            <Menu.Item
-                                className={menuItem}
-                                disabled={tabs.length === 0}
-                                onClick={() => close(tabs.filter((t) => !t.dirty).map((t) => t.id))}
-                            >
-                                Close Saved
-                            </Menu.Item>
-                            <Menu.Item
-                                className={menuItem}
-                                disabled={tabs.length === 0}
-                                onClick={() => close(tabs.map((t) => t.id))}
-                            >
-                                Close All
-                            </Menu.Item>
-                            <Menu.Separator className="my-1 h-px bg-border" />
-                            <Menu.Item
-                                className={menuItem}
-                                disabled={!active}
-                                onClick={() => active && togglePin(active.id)}
-                            >
-                                {active?.pinned ? "Unpin Tab" : "Pin Tab"}
-                            </Menu.Item>
-                            <Menu.Item
-                                className={menuItem}
-                                disabled={!active}
-                                onClick={() => active && navigator.clipboard?.writeText(active.name)}
-                            >
-                                Copy Name
-                            </Menu.Item>
-                        </Menu.Popup>
-                    </Menu.Positioner>
-                </Menu.Portal>
-            </Menu.Root>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-56">
+                    <DropdownMenuItem disabled={!active} onClick={() => active && close([active.id], true)}>
+                        Close
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                        disabled={!active}
+                        onClick={() => active && close(tabs.filter((t) => t.id !== active.id).map((t) => t.id))}
+                    >
+                        Close Others
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                        disabled={idx < 0 || idx === tabs.length - 1}
+                        onClick={() => close(tabs.slice(idx + 1).map((t) => t.id))}
+                    >
+                        Close to the Right
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                        disabled={tabs.length === 0}
+                        onClick={() => close(tabs.filter((t) => !t.dirty).map((t) => t.id))}
+                    >
+                        Close Saved
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled={tabs.length === 0} onClick={() => close(tabs.map((t) => t.id))}>
+                        Close All
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem disabled={!active} onClick={() => active && togglePin(active.id)}>
+                        {active?.pinned ? "Unpin Tab" : "Pin Tab"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                        disabled={!active}
+                        onClick={() => active && navigator.clipboard?.writeText(active.name)}
+                    >
+                        Copy Name
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
         </div>
     );
 }

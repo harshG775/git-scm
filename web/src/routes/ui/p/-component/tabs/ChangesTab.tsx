@@ -1,15 +1,26 @@
 import { useState } from "react";
-import { Archive, ChevronDown, GitCommitVertical } from "lucide-react";
-import { Button } from "#/components/ui/button";
+import { Archive, Check, ChevronDown, Ellipsis, File, Folder, GitCommitVertical } from "lucide-react";
+import { Button, buttonVariants } from "#/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "#/components/ui/dropdown-menu";
 import { Input } from "#/components/ui/input";
 import { Textarea } from "#/components/ui/textarea";
 import { TabHeader } from "./TabHeader";
 
 type ActionTab = "commit" | "stash";
+type ChangesView = "list" | "tree";
+type ChangeFile = { path: string; status: string };
 
-const STAGED_FILES = ["src/main.tsx", "README.md"];
-const CHANGED_FILES = [
+const STAGED_FILES: ChangeFile[] = [
+    { path: "src/main.tsx", status: "M" },
+    { path: "README.md", status: "M" },
+];
+const CHANGED_FILES: ChangeFile[] = [
     { path: "src/styles.css", status: "M" },
     { path: "web/src/routes.tsx", status: "M" },
     { path: "notes.md", status: "U" },
@@ -19,6 +30,7 @@ const SAMPLE_STASHES = ["WIP on main: update mobile navigation", "Save editor la
 
 export function ChangesTab() {
     const [activeAction, setActiveAction] = useState<ActionTab>("commit");
+    const [changesView, setChangesView] = useState<ChangesView>("list");
     const [commitMessage, setCommitMessage] = useState("");
     const [stashMessage, setStashMessage] = useState("");
     const [amendLastCommit, setAmendLastCommit] = useState(false);
@@ -41,9 +53,75 @@ export function ChangesTab() {
         setCommitMessage(`${type}: ${message}`);
     };
 
+    const renderFiles = (files: ChangeFile[]) => {
+        if (changesView === "list") {
+            return files.map(({ path, status }) => (
+                <div key={path} className="flex min-h-9 items-center justify-between gap-2 text-sm">
+                    <span className="truncate">{path}</span>
+                    <span className="text-xs font-medium text-amber-500">{status}</span>
+                </div>
+            ));
+        }
+
+        const byDirectory = new Map<string, { name: string; status: string }[]>();
+        for (const { path, status } of files) {
+            const separator = path.lastIndexOf("/");
+            const directory = separator === -1 ? "" : path.slice(0, separator);
+            const name = path.slice(separator + 1);
+            const entries = byDirectory.get(directory) ?? [];
+            entries.push({ name, status });
+            byDirectory.set(directory, entries);
+        }
+
+        return [...byDirectory].map(([directory, entries]) => (
+            <div key={directory}>
+                {directory && (
+                    <div className="flex min-h-9 items-center gap-2 text-sm">
+                        <Folder className="size-4 text-muted-foreground" aria-hidden="true" />
+                        <span>{directory}</span>
+                    </div>
+                )}
+                {entries.map(({ name, status }) => (
+                    <div
+                        key={`${directory}/${name}`}
+                        className={`flex min-h-9 items-center justify-between gap-2 text-sm ${directory ? "pl-5" : ""}`}
+                    >
+                        <span className="flex min-w-0 items-center gap-2 truncate">
+                            <File className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                            <span className="truncate">{name}</span>
+                        </span>
+                        <span className="text-xs font-medium text-amber-500">{status}</span>
+                    </div>
+                ))}
+            </div>
+        ));
+    };
+
     return (
         <div>
-            <TabHeader title="Changes" />
+            <TabHeader
+                title="Changes"
+                action={
+                    <DropdownMenu>
+                        <DropdownMenuTrigger
+                            className={buttonVariants({ variant: "ghost", size: "icon" })}
+                            aria-label="Change view options"
+                        >
+                            <Ellipsis aria-hidden="true" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setChangesView("list")}>
+                                View as List
+                                {changesView === "list" && <Check className="ml-auto" aria-hidden="true" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setChangesView("tree")}>
+                                View as Tree
+                                {changesView === "tree" && <Check className="ml-auto" aria-hidden="true" />}
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                }
+            />
             <section className="mx-2 my-2 border border-sidebar-border p-3">
                 <div role="group" aria-label="Change actions" className="mb-3 flex gap-2">
                     {(["commit", "stash"] as const).map((action) => (
@@ -175,7 +253,7 @@ export function ChangesTab() {
             </section>
 
             {[
-                { title: "Staged Changes", files: STAGED_FILES.map((path) => ({ path, status: "M" })) },
+                { title: "Staged Changes", files: STAGED_FILES },
                 { title: "Changes", files: CHANGED_FILES },
             ].map(({ title, files }) => (
                 <Collapsible key={title} defaultOpen>
@@ -188,14 +266,7 @@ export function ChangesTab() {
                             <span>{title}</span>
                             <span className="ml-auto text-xs text-muted-foreground">{files.length}</span>
                         </CollapsibleTrigger>
-                        <CollapsibleContent className="px-3 py-2">
-                            {files.map(({ path, status }) => (
-                                <div key={path} className="flex min-h-9 items-center justify-between gap-2 text-sm">
-                                    <span className="truncate">{path}</span>
-                                    <span className="text-xs font-medium text-amber-500">{status}</span>
-                                </div>
-                            ))}
-                        </CollapsibleContent>
+                        <CollapsibleContent className="px-3 py-2">{renderFiles(files)}</CollapsibleContent>
                     </section>
                 </Collapsible>
             ))}
