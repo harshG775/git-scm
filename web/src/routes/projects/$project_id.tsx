@@ -13,7 +13,7 @@ import {
     PanelLeftClose,
     type LucideIcon,
 } from "lucide-react";
-import { startTransition, useEffect, useState } from "react";
+import { Activity, startTransition, useEffect, useState } from "react";
 import { ErrorBoundary } from "#/components/error-boundary";
 import { Button } from "#/components/ui/button";
 import { Skeleton } from "#/components/ui/skeleton";
@@ -193,6 +193,8 @@ function RouteComponent() {
         return () => window.removeEventListener("keydown", onKeyDown);
     }, []);
     const [active, setActive] = useState<NavTab>("files");
+    // tabs stay mounted so their state survives switching; the inactive ones are hidden
+    const mode = (tab: NavTab) => (tab === active ? "visible" : "hidden");
     const [tabs, setTabs] = useState<EditorTab[]>(MOCK_TABS);
     const [activeId, setActiveId] = useState<string | null>("route");
     const activeTab = tabs.find((t) => t.id === activeId);
@@ -255,31 +257,23 @@ function RouteComponent() {
                     data-project={project_id}
                     className="flex-1 min-h-0 overflow-y-auto flex flex-col"
                 >
-                    <div hidden={active !== "files"}>
-                        <ErrorBoundary resetKeys={[project_id]} title="Files failed to load">
+                    <ErrorBoundary resetKeys={[project_id]} title="The sidebar failed to load">
+                        <Activity mode={mode("files")}>
                             <FilesTab projectId={project_id} />
-                        </ErrorBoundary>
-                    </div>
-                    <div hidden={active !== "changes"}>
-                        <ErrorBoundary resetKeys={[project_id]} title="Changes failed to load">
+                        </Activity>
+                        <Activity mode={mode("changes")}>
                             <ChangesTab />
-                        </ErrorBoundary>
-                    </div>
-                    <div hidden={active !== "branches"}>
-                        <ErrorBoundary resetKeys={[project_id]} title="Branches failed to load">
+                        </Activity>
+                        <Activity mode={mode("branches")}>
                             <BranchesTab onOpenGraph={openGraph} />
-                        </ErrorBoundary>
-                    </div>
-                    <div hidden={active !== "stash"}>
-                        <ErrorBoundary resetKeys={[project_id]} title="Stash failed to load">
+                        </Activity>
+                        <Activity mode={mode("stash")}>
                             <StashTab />
-                        </ErrorBoundary>
-                    </div>
-                    <div hidden={active !== "prs"}>
-                        <ErrorBoundary resetKeys={[project_id]} title="Pull requests failed to load">
+                        </Activity>
+                        <Activity mode={mode("prs")}>
                             <PullRequestsTab />
-                        </ErrorBoundary>
-                    </div>
+                        </Activity>
+                    </ErrorBoundary>
                 </section>
                 <nav className="sticky bottom-0 grid grid-cols-5 border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)]">
                     {NAV_ITEMS.map(({ id, label, icon: Icon, count }) => {

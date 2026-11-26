@@ -133,63 +133,61 @@ export function FilesTab({ projectId }: { projectId: string }) {
                     <TooltipContent>Collapse all folders</TooltipContent>
                 </Tooltip>
             </div>
-            <Collapsible defaultOpen>
-                <section className="border-b border-sidebar-border">
-                    <CollapsibleTrigger className="group flex min-h-10 w-full items-center gap-1 px-2 text-left text-sm font-medium">
-                        <ChevronDown
-                            className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
-                            aria-hidden="true"
-                        />
-                        <span>Project files</span>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                        {root?.isPending ? (
-                            <FilesSkeleton />
-                        ) : root?.error ? (
-                            <p role="alert" className="px-3 py-2 text-xs text-destructive">
-                                {root.error.message}{" "}
-                                <button type="button" className="underline" onClick={() => root.refetch()}>
-                                    Retry
-                                </button>
+            <Collapsible defaultOpen className="border-b border-sidebar-border">
+                <CollapsibleTrigger className=" group flex min-h-10 w-full items-center gap-1 px-2 text-left text-sm font-medium">
+                    <ChevronDown
+                        className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
+                        aria-hidden="true"
+                    />
+                    <span>Project files</span>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    {root?.isPending ? (
+                        <FilesSkeleton />
+                    ) : root?.error ? (
+                        <p role="alert" className="px-3 py-2 text-xs text-destructive">
+                            {root.error.message}{" "}
+                            <button type="button" className="underline" onClick={() => root.refetch()}>
+                                Retry
+                            </button>
+                        </p>
+                    ) : searching ? (
+                        matches.length === 0 ? (
+                            <p role="status" className="px-3 py-2 text-xs text-muted-foreground">
+                                No files match “{query.trim()}” in the folders opened so far.
                             </p>
-                        ) : searching ? (
-                            matches.length === 0 ? (
-                                <p role="status" className="px-3 py-2 text-xs text-muted-foreground">
-                                    No files match “{query.trim()}” in the folders opened so far.
-                                </p>
-                            ) : (
-                                <>
-                                    <FileTree<Entry>
-                                        label="Search results"
-                                        view="list"
-                                        entries={matches.slice(0, MAX_RESULTS)}
-                                        renderMeta={renderMeta}
-                                        selectedPath={selected}
-                                        onSelect={(entry) => setSelected(entry.path)}
-                                    />
-                                    <p role="status" className="px-3 py-2 text-xs text-muted-foreground">
-                                        {matches.length > MAX_RESULTS
-                                            ? `Showing ${MAX_RESULTS} of ${matches.length}. `
-                                            : ""}
-                                        Searches the folders opened so far.
-                                    </p>
-                                </>
-                            )
-                        ) : entries.length === 0 ? (
-                            <p className="px-3 py-2 text-xs text-muted-foreground">This folder is empty</p>
                         ) : (
-                            <FileTree<Entry>
-                                label="Project files"
-                                entries={entries}
-                                expanded={expanded}
-                                renderMeta={renderMeta}
-                                onToggleFolder={(node) => toggleDir(node.path)}
-                                selectedPath={selected}
-                                onSelect={(entry) => setSelected(entry.path)}
-                            />
-                        )}
-                    </CollapsibleContent>
-                </section>
+                            <>
+                                <FileTree<Entry>
+                                    label="Search results"
+                                    view="list"
+                                    entries={matches.slice(0, MAX_RESULTS)}
+                                    renderMeta={renderMeta}
+                                    selectedPath={selected}
+                                    onSelect={(entry) => setSelected(entry.path)}
+                                />
+                                <p role="status" className="px-3 py-2 text-xs text-muted-foreground">
+                                    {matches.length > MAX_RESULTS
+                                        ? `Showing ${MAX_RESULTS} of ${matches.length}. `
+                                        : ""}
+                                    Searches the folders opened so far.
+                                </p>
+                            </>
+                        )
+                    ) : entries.length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-muted-foreground">This folder is empty</p>
+                    ) : (
+                        <FileTree<Entry>
+                            label="Project files"
+                            entries={entries}
+                            expanded={expanded}
+                            renderMeta={renderMeta}
+                            onToggleFolder={(node) => toggleDir(node.path)}
+                            selectedPath={selected}
+                            onSelect={(entry) => setSelected(entry.path)}
+                        />
+                    )}
+                </CollapsibleContent>
             </Collapsible>
         </>
     );

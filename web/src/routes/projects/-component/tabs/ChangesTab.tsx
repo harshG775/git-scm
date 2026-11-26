@@ -68,7 +68,7 @@ export function ChangesTab() {
     );
 
     return (
-        <div>
+        <>
             <TabHeader
                 title="Changes"
                 action={
@@ -233,21 +233,19 @@ export function ChangesTab() {
                 { title: "Staged Changes", files: STAGED_FILES },
                 { title: "Changes", files: CHANGED_FILES },
             ].map(({ title, files }) => (
-                <Collapsible key={title} defaultOpen>
-                    <section className="border-b border-sidebar-border">
-                        <CollapsibleTrigger className="group flex min-h-10 w-full items-center gap-1 px-2 text-left text-sm font-medium">
-                            <ChevronDown
-                                className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
-                                aria-hidden="true"
-                            />
-                            <span>{title}</span>
-                            <span className="ml-auto text-xs text-muted-foreground">{files.length}</span>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>{renderFiles(title, files)}</CollapsibleContent>
-                    </section>
+                <Collapsible key={title} defaultOpen className="border-b border-sidebar-border">
+                    <CollapsibleTrigger className="group flex min-h-10 w-full items-center gap-1 px-2 text-left text-sm font-medium">
+                        <ChevronDown
+                            className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
+                            aria-hidden="true"
+                        />
+                        <span>{title}</span>
+                        <span className="ml-auto text-xs text-muted-foreground">{files.length}</span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>{renderFiles(title, files)}</CollapsibleContent>
                 </Collapsible>
             ))}
-        </div>
+        </>
     );
 }
 

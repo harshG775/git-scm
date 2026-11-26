@@ -24,7 +24,7 @@ export function BranchesTab({ onOpenGraph }: { onOpenGraph: () => void }) {
     })).filter(({ items }) => !search || items.length > 0);
 
     return (
-        <div>
+        <>
             <TabHeader
                 title="Branches"
                 leadingAction={<TooltipIconButton label="Open Git Graph" icon={GitGraph} onClick={onOpenGraph} />}
@@ -51,33 +51,32 @@ export function BranchesTab({ onOpenGraph }: { onOpenGraph: () => void }) {
                     key={title}
                     open={search ? true : openGroups[title]}
                     onOpenChange={(open) => setOpenGroups((current) => ({ ...current, [title]: open }))}
+                    className="border-b border-sidebar-border"
                 >
-                    <section className="border-b border-sidebar-border">
-                        <CollapsibleTrigger
-                            disabled={Boolean(search)}
-                            className="group flex min-h-10 w-full items-center gap-1 px-2 text-left text-sm font-medium"
-                        >
-                            <ChevronDown
-                                className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
-                                aria-hidden="true"
-                            />
-                            <span>{title}</span>
-                            <span className="ml-auto text-xs text-muted-foreground">{items.length}</span>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="px-3 py-2">
-                            {items.map((item) => (
-                                <div key={item} className="flex min-h-9 items-center gap-2 text-sm">
-                                    <Icon className="size-4 text-muted-foreground" />
-                                    <span>{item}</span>
-                                </div>
-                            ))}
-                        </CollapsibleContent>
-                    </section>
+                    <CollapsibleTrigger
+                        disabled={Boolean(search)}
+                        className="group flex min-h-10 w-full items-center gap-1 px-2 text-left text-sm font-medium"
+                    >
+                        <ChevronDown
+                            className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
+                            aria-hidden="true"
+                        />
+                        <span>{title}</span>
+                        <span className="ml-auto text-xs text-muted-foreground">{items.length}</span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="px-3 py-2">
+                        {items.map((item) => (
+                            <div key={item} className="flex min-h-9 items-center gap-2 text-sm">
+                                <Icon className="size-4 text-muted-foreground" />
+                                <span>{item}</span>
+                            </div>
+                        ))}
+                    </CollapsibleContent>
                 </Collapsible>
             ))}
             {search && filteredGroups.length === 0 && (
                 <p className="px-3 py-2 text-sm text-muted-foreground">No matching branches, remotes, or tags.</p>
             )}
-        </div>
+        </>
     );
 }
