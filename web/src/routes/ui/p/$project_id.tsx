@@ -3,7 +3,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
     Archive,
-    ChevronDown,
     ChevronsUpDown,
     FileDiff,
     Folder,
@@ -13,8 +12,12 @@ import {
     type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
-import { Collapsible, CollapsibleContent as CollapsiblePanel, CollapsibleTrigger } from "#/components/ui/collapsible";
 import { cn } from "#/lib/utils";
+import { BranchesTab } from "./-component/tabs/BranchesTab";
+import { ChangesTab } from "./-component/tabs/ChangesTab";
+import { FilesTab } from "./-component/tabs/FilesTab";
+import { PullRequestsTab } from "./-component/tabs/PullRequestsTab";
+import { StashTab } from "./-component/tabs/StashTab";
 import { TabStrip, type EditorTab } from "./-component/TabStrip";
 
 export const Route = createFileRoute("/ui/p/$project_id")({
@@ -108,36 +111,25 @@ function RouteComponent() {
                     </button>
                 </header>
                 <section
-                    key={active}
                     aria-label={active}
                     data-project={project_id}
                     className="flex-1 min-h-0 overflow-y-auto flex flex-col"
                 >
-                    <div className="text-xs capitalize px-2 py-1.5">{active}</div>
-
-                    {/* content */}
-                    {[1, 2, 3].map((section) => (
-                        <Collapsible key={section} defaultOpen>
-                            <section className="border-b border-sidebar-border">
-                                <CollapsibleTrigger className="group flex min-h-10 w-full items-center gap-1 text-left text-sm font-medium">
-                                    <ChevronDown
-                                        className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
-                                        aria-hidden="true"
-                                    />
-                                    <span>content title</span>
-                                </CollapsibleTrigger>
-                                <CollapsiblePanel className=" px-3 py-2">
-                                    {Array.from({ length: 4 }, (_, paragraph) => (
-                                        <p key={paragraph}>
-                                            Lorem ipsum dolor sit amet consectetur adipisicing elit. Quos delectus, ab
-                                            itaque commodi, nemo hic corrupti quia assumenda id blanditiis ut saepe.
-                                            Nemo distinctio possimus dignissimos odio nisi officiis voluptatum!
-                                        </p>
-                                    ))}
-                                </CollapsiblePanel>
-                            </section>
-                        </Collapsible>
-                    ))}
+                    <div hidden={active !== "files"}>
+                        <FilesTab />
+                    </div>
+                    <div hidden={active !== "changes"}>
+                        <ChangesTab />
+                    </div>
+                    <div hidden={active !== "branches"}>
+                        <BranchesTab />
+                    </div>
+                    <div hidden={active !== "stash"}>
+                        <StashTab />
+                    </div>
+                    <div hidden={active !== "prs"}>
+                        <PullRequestsTab />
+                    </div>
                 </section>
                 <nav className="sticky bottom-0 grid grid-cols-5 border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)]">
                     {NAV_ITEMS.map(({ id, label, icon: Icon, count }) => {
