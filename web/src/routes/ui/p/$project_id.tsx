@@ -53,21 +53,23 @@ function RouteComponent() {
                     className="flex-1 min-h-0 overflow-y-auto"
                 >
                     <header className="flex h-10 items-center justify-between gap-2 border-b border-sidebar-border px-2 text-xs">
-                        <button
-                            type="button"
-                            aria-label="Select repository"
-                            className="flex shrink-0 items-center gap-1.5 font-mono font-semibold text-sidebar-foreground"
-                        >
-                            <ChevronDown className="size-4 shrink-0" />
-                            <span className="truncate">repository</span>
-                        </button>
-                        <span className="shrink-0 text-sidebar-border">/</span>
-                        <span className="truncate font-mono">pocket-notes</span>
-                        <span className="shrink-0 text-sidebar-border">/</span>
-                        <button type="button" className="flex shrink-0 items-center gap-1.5 font-mono text-sidebar-foreground">
-                            <GitBranch className="size-4 text-muted-foreground" />
-                            main
-                        </button>
+                        <div className="flex h-10 items-center justify-between gap-1 text-xs">
+                            <button
+                                type="button"
+                                aria-label="Select repository"
+                                className="flex shrink-0 items-center gap-1.5 font-mono font-semibold text-sidebar-foreground"
+                            >
+                                <ChevronDown className="size-4 shrink-0" />
+                                <span className="truncate">repository</span>
+                            </button>
+                            <span className="shrink-0 text-muted-foreground">/</span>
+                            <span className="truncate font-mono">pocket-notes</span>
+                            <span className="shrink-0 text-muted-foreground">/</span>
+                            <button type="button" className="flex shrink-0 items-center gap-1.5 font-mono text-sidebar-foreground">
+                                <GitBranch className="size-4 text-muted-foreground" />
+                                main
+                            </button>
+                        </div>
                         <button
                             type="button"
                             aria-label="Sync Changes"
