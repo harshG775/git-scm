@@ -4,6 +4,7 @@ import { ChevronDown, ChevronsDownUp, Search, X } from "lucide-react";
 import { Button } from "#/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
 import { Input } from "#/components/ui/input";
+import { Skeleton } from "#/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
 import { filterFiles } from "#/components/file-tree/build-tree";
 import { FileTree, type TreeEntry, type TreeNode } from "#/components/file-tree/file-tree";
@@ -15,6 +16,20 @@ import { useWorkspace } from "#/stores/workspace";
 import { TabHeader } from "./TabHeader";
 
 const MAX_RESULTS = 100;
+const SKELETON_WIDTHS = ["w-24", "w-16", "w-28", "w-20", "w-32", "w-24", "w-20"];
+
+function FilesSkeleton() {
+    return (
+        <div role="status" aria-label="Loading files" className="py-1">
+            {SKELETON_WIDTHS.map((width, i) => (
+                <div key={i} className="flex min-h-9 items-center gap-2 px-3">
+                    <Skeleton className="size-4 shrink-0" />
+                    <Skeleton className={`h-3.5 ${width}`} />
+                </div>
+            ))}
+        </div>
+    );
+}
 
 const toTreeEntry = (entry: Entry): TreeEntry<Entry> => ({
     path: entry.path,
@@ -129,7 +144,7 @@ export function FilesTab({ projectId }: { projectId: string }) {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                         {root?.isPending ? (
-                            <p className="px-3 py-2 text-xs text-muted-foreground">Loading…</p>
+                            <FilesSkeleton />
                         ) : root?.error ? (
                             <p role="alert" className="px-3 py-2 text-xs text-destructive">
                                 {root.error.message}{" "}

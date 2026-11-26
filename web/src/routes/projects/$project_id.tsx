@@ -14,7 +14,9 @@ import {
     type LucideIcon,
 } from "lucide-react";
 import { startTransition, useEffect, useState } from "react";
+import { ErrorBoundary } from "#/components/error-boundary";
 import { Button } from "#/components/ui/button";
+import { Skeleton } from "#/components/ui/skeleton";
 import { GraphView } from "#/components/shell/GraphView";
 import { PanelResizer } from "#/components/shell/PanelResizer";
 import { usePanelSnap } from "#/contexts/PanelSnapContext";
@@ -124,7 +126,7 @@ function RepoCrumb({ projectId }: { projectId: string }) {
                 className="flex min-w-0 items-center gap-1.5 font-mono font-semibold text-sidebar-foreground"
             >
                 <ChevronsUpDown className="size-4 shrink-0" />
-                <span className="truncate">{name ?? "Project"}</span>
+                {name ? <span className="truncate">{name}</span> : <Skeleton className="h-4 w-24" />}
             </button>
             {branches?.isRepo && (
                 <>
@@ -254,19 +256,29 @@ function RouteComponent() {
                     className="flex-1 min-h-0 overflow-y-auto flex flex-col"
                 >
                     <div hidden={active !== "files"}>
-                        <FilesTab projectId={project_id} />
+                        <ErrorBoundary resetKeys={[project_id]} title="Files failed to load">
+                            <FilesTab projectId={project_id} />
+                        </ErrorBoundary>
                     </div>
                     <div hidden={active !== "changes"}>
-                        <ChangesTab />
+                        <ErrorBoundary resetKeys={[project_id]} title="Changes failed to load">
+                            <ChangesTab />
+                        </ErrorBoundary>
                     </div>
                     <div hidden={active !== "branches"}>
-                        <BranchesTab onOpenGraph={openGraph} />
+                        <ErrorBoundary resetKeys={[project_id]} title="Branches failed to load">
+                            <BranchesTab onOpenGraph={openGraph} />
+                        </ErrorBoundary>
                     </div>
                     <div hidden={active !== "stash"}>
-                        <StashTab />
+                        <ErrorBoundary resetKeys={[project_id]} title="Stash failed to load">
+                            <StashTab />
+                        </ErrorBoundary>
                     </div>
                     <div hidden={active !== "prs"}>
-                        <PullRequestsTab />
+                        <ErrorBoundary resetKeys={[project_id]} title="Pull requests failed to load">
+                            <PullRequestsTab />
+                        </ErrorBoundary>
                     </div>
                 </section>
                 <nav className="sticky bottom-0 grid grid-cols-5 border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)]">
@@ -335,28 +347,30 @@ function RouteComponent() {
                     <TabStrip tabs={tabs} setTabs={setTabs} activeId={activeId} setActiveId={setActiveId} />
                 </div>
                 <section className="min-h-0 flex-1 overflow-auto p-3 text-sm">
-                    {activeTab?.kind === "graph" ? (
-                        <GraphView projectId={project_id} />
-                    ) : activeTab?.kind === "terminal" ? (
-                        <div className="w-max min-w-full font-mono text-xs leading-5">
-                            {TERMINAL_SESSION.map(({ cmd, out }) => (
-                                <div key={cmd} className="mb-2">
-                                    <div>
-                                        <span className="text-sidebar-primary">~/pocket-notes $</span> {cmd}
+                    <ErrorBoundary resetKeys={[project_id, activeId]} title="This tab failed to load">
+                        {activeTab?.kind === "graph" ? (
+                            <GraphView projectId={project_id} />
+                        ) : activeTab?.kind === "terminal" ? (
+                            <div className="w-max min-w-full font-mono text-xs leading-5">
+                                {TERMINAL_SESSION.map(({ cmd, out }) => (
+                                    <div key={cmd} className="mb-2">
+                                        <div>
+                                            <span className="text-sidebar-primary">~/pocket-notes $</span> {cmd}
+                                        </div>
+                                        {out && <pre className="text-muted-foreground">{out}</pre>}
                                     </div>
-                                    {out && <pre className="text-muted-foreground">{out}</pre>}
+                                ))}
+                                <div>
+                                    <span className="text-sidebar-primary">~/pocket-notes $</span>{" "}
+                                    <span className="animate-pulse">▍</span>
                                 </div>
-                            ))}
-                            <div>
-                                <span className="text-sidebar-primary">~/pocket-notes $</span>{" "}
-                                <span className="animate-pulse">▍</span>
                             </div>
-                        </div>
-                    ) : activeTab ? (
-                        <pre className="w-max min-w-full font-mono text-xs leading-5">{SAMPLE_CODE}</pre>
-                    ) : (
-                        "No file open"
-                    )}
+                        ) : activeTab ? (
+                            <pre className="w-max min-w-full font-mono text-xs leading-5">{SAMPLE_CODE}</pre>
+                        ) : (
+                            "No file open"
+                        )}
+                    </ErrorBoundary>
                 </section>
             </section>
         </div>

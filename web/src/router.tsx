@@ -1,6 +1,7 @@
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import { queryClient } from "./lib/query-client";
+import { ErrorFallback } from "./components/error-boundary";
 
 export function getRouter() {
     const router = createTanStackRouter({
@@ -9,6 +10,9 @@ export function getRouter() {
         scrollRestoration: true,
         defaultPreload: "intent",
         defaultPreloadStaleTime: 0,
+        defaultErrorComponent: ({ error, reset }) => (
+            <ErrorFallback error={error instanceof Error ? error : new Error(String(error))} reset={reset} />
+        ),
     });
 
     return router;
