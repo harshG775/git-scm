@@ -51,6 +51,7 @@ interface WorkspaceState {
     setBuffer: (path: string, buffer: string | undefined) => void;
     markChanged: (path: string, changed: boolean) => void;
     toggleDir: (path: string) => void;
+    collapseAll: () => void;
     setCommitMessage: (message: string) => void;
     toggleBranchSection: (section: BranchSection) => void;
     /** Activity-bar / bottom-nav tap. Tapping the open panel collapses it, as in VS Code. */
@@ -123,6 +124,8 @@ export const useWorkspace = create<WorkspaceState>()(
                 set((s) => ({
                     expanded: s.expanded.includes(path) ? s.expanded.filter((p) => p !== path) : [...s.expanded, path],
                 })),
+
+            collapseAll: () => set({ expanded: [] }),
 
             setCommitMessage: (commitMessage) => set({ commitMessage }),
             toggleBranchSection: (section) =>

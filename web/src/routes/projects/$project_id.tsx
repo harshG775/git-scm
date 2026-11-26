@@ -1,5 +1,6 @@
 // this is scratchpad for building and testing ui
 // this mobile only ui
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
     Archive,
@@ -10,7 +11,6 @@ import {
     GitPullRequest,
     PanelLeftOpen,
     PanelLeftClose,
-    RefreshCw,
     type LucideIcon,
 } from "lucide-react";
 import { startTransition, useEffect, useState } from "react";
@@ -18,12 +18,16 @@ import { Button } from "#/components/ui/button";
 import { GraphView } from "#/components/shell/GraphView";
 import { PanelResizer } from "#/components/shell/PanelResizer";
 import { usePanelSnap } from "#/contexts/PanelSnapContext";
+import { useLiveUpdates } from "#/lib/live";
+import { gitBranchesOptions, projectsOptions } from "#/lib/queries";
+import { useWorkspace } from "#/stores/workspace";
 import { cn } from "#/lib/utils";
 import { BranchesTab } from "./-component/tabs/BranchesTab";
 import { ChangesTab } from "./-component/tabs/ChangesTab";
 import { FilesTab } from "./-component/tabs/FilesTab";
 import { PullRequestsTab } from "./-component/tabs/PullRequestsTab";
 import { StashTab } from "./-component/tabs/StashTab";
+import { SyncButton, SyncError, useSync } from "./-component/sync";
 import { TabStrip, type EditorTab } from "./-component/TabStrip";
 
 export const Route = createFileRoute("/projects/$project_id")({
@@ -106,9 +110,62 @@ function saveSetting(key: string, value: string) {
     }
 }
 
+/** project name / current branch, both from the API; git events keep the branch current */
+function RepoCrumb({ projectId }: { projectId: string }) {
+    const { data: projects } = useQuery(projectsOptions);
+    const { data: branches } = useQuery(gitBranchesOptions(projectId));
+    const name = projects?.find((project) => project.id === projectId)?.name;
+
+    return (
+        <div className="flex h-10 min-w-0 items-center gap-1 text-xs">
+            <button
+                type="button"
+                aria-label="Switch project"
+                className="flex min-w-0 items-center gap-1.5 font-mono font-semibold text-sidebar-foreground"
+            >
+                <ChevronsUpDown className="size-4 shrink-0" />
+                <span className="truncate">{name ?? "Project"}</span>
+            </button>
+            {branches?.isRepo && (
+                <>
+                    <span className="shrink-0 text-muted-foreground">/</span>
+                    <button
+                        type="button"
+                        aria-label={branches.detached ? "Detached HEAD" : "Switch branch"}
+                        className="flex min-w-0 items-center gap-1.5 font-mono text-sidebar-foreground"
+                    >
+                        <GitBranch className="size-4 shrink-0 text-muted-foreground" />
+                        <span className={cn("truncate", branches.detached && "italic")}>{branches.head}</span>
+                    </button>
+                </>
+            )}
+        </div>
+    );
+}
+
+/** Green while the server's event stream is connected, i.e. outside edits show up on their own. */
+function LiveDot({ live }: { live: boolean }) {
+    return (
+        <span
+            role="status"
+            aria-label={live ? "Live updates on" : "Live updates off, reconnecting"}
+            title={live ? "Live updates on" : "Reconnecting…"}
+            className={cn(
+                "mx-2 size-2 shrink-0 rounded-full transition-colors",
+                live ? "bg-green-500" : "animate-pulse bg-muted-foreground/50",
+            )}
+        />
+    );
+}
+
 function RouteComponent() {
     const { project_id } = Route.useParams();
     const { containerRef, onScroll, snapTo } = usePanelSnap();
+    // expanded dirs belong to one project; switching resets them. Live updates refresh the tree on outside edits.
+    const enterProject = useWorkspace((s) => s.enterProject);
+    useEffect(() => enterProject(project_id), [enterProject, project_id]);
+    const live = useLiveUpdates(project_id);
+    const sync = useSync(project_id);
     const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth);
     const [sidebarOpen, setSidebarOpenState] = useState(loadSidebarOpen);
     const resizeSidebar = (width: number) => {
@@ -170,30 +227,10 @@ function RouteComponent() {
                 )}
             >
                 <header className="flex h-10 items-center justify-between gap-2 border-b border-sidebar-border px-2 text-xs">
-                    <div className="flex h-10 items-center justify-between gap-1 text-xs">
-                        <button
-                            type="button"
-                            aria-label="Select repository"
-                            className="flex shrink-0 items-center gap-1.5 font-mono font-semibold text-sidebar-foreground"
-                        >
-                            <ChevronsUpDown className="size-4 shrink-0" />
-                            <span className="truncate">repository</span>
-                        </button>
-                        <span className="shrink-0 text-muted-foreground">/</span>
-                        <span className="truncate font-mono">pocket-notes</span>
-                        <span className="shrink-0 text-muted-foreground">/</span>
-                        <button
-                            type="button"
-                            className="flex shrink-0 items-center gap-1.5 font-mono text-sidebar-foreground"
-                        >
-                            <GitBranch className="size-4 text-muted-foreground" />
-                            main
-                        </button>
-                    </div>
+                    <RepoCrumb projectId={project_id} />
                     <div className="ml-auto flex items-center">
-                        <Button type="button" aria-label="Sync Changes" variant="ghost" size="icon">
-                            <RefreshCw className="size-4" />
-                        </Button>
+                        <LiveDot live={live} />
+                        <SyncButton sync={sync} />
                         <Button
                             type="button"
                             aria-label="Collapse sidebar"
@@ -210,13 +247,14 @@ function RouteComponent() {
                         </Button>
                     </div>
                 </header>
+                <SyncError sync={sync} />
                 <section
                     aria-label={active}
                     data-project={project_id}
                     className="flex-1 min-h-0 overflow-y-auto flex flex-col"
                 >
                     <div hidden={active !== "files"}>
-                        <FilesTab />
+                        <FilesTab projectId={project_id} />
                     </div>
                     <div hidden={active !== "changes"}>
                         <ChangesTab />

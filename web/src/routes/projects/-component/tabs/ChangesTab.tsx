@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Archive, Check, ChevronDown, Ellipsis, File, Folder, GitCommitVertical } from "lucide-react";
+import { Archive, Check, ChevronDown, Ellipsis, GitCommitVertical } from "lucide-react";
 import { Button, buttonVariants } from "#/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
 import {
@@ -9,21 +9,23 @@ import {
     DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
 import { Input } from "#/components/ui/input";
+import { FileTree, type TreeEntry } from "#/components/file-tree/file-tree";
+import { StatusLetter } from "#/components/file-tree/status-letter";
 import { Textarea } from "#/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
 import { TabHeader } from "./TabHeader";
 
 type ActionTab = "commit" | "stash";
 type ChangesView = "list" | "tree";
-type ChangeFile = { path: string; status: string };
+type ChangeFile = { path: string; status: string; added?: number; removed?: number };
 
 const STAGED_FILES: ChangeFile[] = [
-    { path: "src/main.tsx", status: "M" },
-    { path: "README.md", status: "M" },
+    { path: "src/main.tsx", status: "M", added: 4, removed: 2 },
+    { path: "README.md", status: "M", added: 1, removed: 1 },
 ];
 const CHANGED_FILES: ChangeFile[] = [
-    { path: "src/styles.css", status: "M" },
-    { path: "web/src/routes.tsx", status: "M" },
+    { path: "src/styles.css", status: "M", added: 2, removed: 1 },
+    { path: "web/src/routes.tsx", status: "M", added: 6, removed: 3 },
     { path: "notes.md", status: "U" },
 ];
 const COMMIT_TYPES = ["feat", "fix", "docs", "refactor", "test", "chore"];
@@ -54,49 +56,16 @@ export function ChangesTab() {
         setCommitMessage(`${type}: ${message}`);
     };
 
-    const renderFiles = (files: ChangeFile[]) => {
-        if (changesView === "list") {
-            return files.map(({ path, status }) => (
-                <div key={path} className="flex min-h-9 items-center justify-between gap-2 text-sm">
-                    <span className="truncate">{path}</span>
-                    <span className="text-xs font-medium text-amber-500">{status}</span>
-                </div>
-            ));
-        }
-
-        const byDirectory = new Map<string, { name: string; status: string }[]>();
-        for (const { path, status } of files) {
-            const separator = path.lastIndexOf("/");
-            const directory = separator === -1 ? "" : path.slice(0, separator);
-            const name = path.slice(separator + 1);
-            const entries = byDirectory.get(directory) ?? [];
-            entries.push({ name, status });
-            byDirectory.set(directory, entries);
-        }
-
-        return [...byDirectory].map(([directory, entries]) => (
-            <div key={directory}>
-                {directory && (
-                    <div className="flex min-h-9 items-center gap-2 text-sm">
-                        <Folder className="size-4 text-muted-foreground" aria-hidden="true" />
-                        <span>{directory}</span>
-                    </div>
-                )}
-                {entries.map(({ name, status }) => (
-                    <div
-                        key={`${directory}/${name}`}
-                        className={`flex min-h-9 items-center justify-between gap-2 text-sm ${directory ? "pl-5" : ""}`}
-                    >
-                        <span className="flex min-w-0 items-center gap-2 truncate">
-                            <File className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <span className="truncate">{name}</span>
-                        </span>
-                        <span className="text-xs font-medium text-amber-500">{status}</span>
-                    </div>
-                ))}
-            </div>
-        ));
-    };
+    const renderFiles = (title: string, files: ChangeFile[]) => (
+        <FileTree<ChangeFile>
+            label={title}
+            view={changesView}
+            entries={files.map((file): TreeEntry<ChangeFile> => ({ path: file.path, data: file }))}
+            defaultOpen
+            showFolderCount
+            renderMeta={({ entry }) => entry?.data && <ChangeMeta file={entry.data} />}
+        />
+    );
 
     return (
         <div>
@@ -274,10 +243,25 @@ export function ChangesTab() {
                             <span>{title}</span>
                             <span className="ml-auto text-xs text-muted-foreground">{files.length}</span>
                         </CollapsibleTrigger>
-                        <CollapsibleContent className="px-3 py-2">{renderFiles(files)}</CollapsibleContent>
+                        <CollapsibleContent>{renderFiles(title, files)}</CollapsibleContent>
                     </section>
                 </Collapsible>
             ))}
         </div>
+    );
+}
+
+// right side of a change row: +added -removed and the status letter
+function ChangeMeta({ file: { status, added, removed } }: { file: ChangeFile }) {
+    return (
+        <span className="flex shrink-0 items-center gap-2 text-xs font-medium">
+            {(added !== undefined || removed !== undefined) && (
+                <span className="flex flex-col items-end font-mono leading-tight">
+                    <span className="text-emerald-500">+{added ?? 0}</span>
+                    <span className="text-red-500">-{removed ?? 0}</span>
+                </span>
+            )}
+            <StatusLetter status={status} />
+        </span>
     );
 }

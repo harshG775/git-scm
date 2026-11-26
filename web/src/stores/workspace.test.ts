@@ -117,3 +117,12 @@ test("the graph is a single tab, however often it is opened", () => {
     expect(s().tabs[0].kind).toBe("graph");
     expect(s().closeTab("view:graph", "view:graph")?.id).toBe("a");
 });
+
+test("collapseAll closes every expanded directory", () => {
+    s().enterProject("p1");
+    s().toggleDir("src");
+    s().toggleDir("src/lib");
+    expect(s().expanded).toEqual(["src", "src/lib"]);
+    s().collapseAll();
+    expect(s().expanded).toEqual([]);
+});
