@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "#/components/ui/button";
+import { GraphView } from "#/components/shell/GraphView";
 import { usePanelSnap } from "#/contexts/PanelSnapContext";
 import { cn } from "#/lib/utils";
 import { BranchesTab } from "./-component/tabs/BranchesTab";
@@ -79,6 +80,15 @@ function RouteComponent() {
     const [tabs, setTabs] = useState<EditorTab[]>(MOCK_TABS);
     const [activeId, setActiveId] = useState<string | null>("route");
     const activeTab = tabs.find((t) => t.id === activeId);
+    const openGraph = () => {
+        setTabs((current) =>
+            current.some((tab) => tab.id === "git-graph")
+                ? current
+                : [...current, { id: "git-graph", name: "Git Graph", kind: "graph" }],
+        );
+        setActiveId("git-graph");
+        snapTo("editor");
+    };
 
     return (
         <div
@@ -139,7 +149,7 @@ function RouteComponent() {
                         <ChangesTab />
                     </div>
                     <div hidden={active !== "branches"}>
-                        <BranchesTab />
+                        <BranchesTab onOpenGraph={openGraph} />
                     </div>
                     <div hidden={active !== "stash"}>
                         <StashTab />
@@ -195,7 +205,9 @@ function RouteComponent() {
                     <TabStrip tabs={tabs} setTabs={setTabs} activeId={activeId} setActiveId={setActiveId} />
                 </div>
                 <section className="min-h-0 flex-1 overflow-auto p-3 text-sm">
-                    {activeTab?.kind === "terminal" ? (
+                    {activeTab?.kind === "graph" ? (
+                        <GraphView projectId={project_id} />
+                    ) : activeTab?.kind === "terminal" ? (
                         <div className="w-max min-w-full font-mono text-xs leading-5">
                             {TERMINAL_SESSION.map(({ cmd, out }) => (
                                 <div key={cmd} className="mb-2">

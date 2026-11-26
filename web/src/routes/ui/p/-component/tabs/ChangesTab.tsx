@@ -10,6 +10,7 @@ import {
 } from "#/components/ui/dropdown-menu";
 import { Input } from "#/components/ui/input";
 import { Textarea } from "#/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
 import { TabHeader } from "./TabHeader";
 
 type ActionTab = "commit" | "stash";
@@ -103,12 +104,19 @@ export function ChangesTab() {
                 title="Changes"
                 action={
                     <DropdownMenu>
-                        <DropdownMenuTrigger
-                            className={buttonVariants({ variant: "ghost", size: "icon" })}
-                            aria-label="Change view options"
-                        >
-                            <Ellipsis aria-hidden="true" />
-                        </DropdownMenuTrigger>
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <DropdownMenuTrigger
+                                        className={buttonVariants({ variant: "ghost", size: "icon" })}
+                                        aria-label="Change view options"
+                                    />
+                                }
+                            >
+                                <Ellipsis aria-hidden="true" />
+                            </TooltipTrigger>
+                            <TooltipContent>Change view options</TooltipContent>
+                        </Tooltip>
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setChangesView("list")}>
                                 View as List

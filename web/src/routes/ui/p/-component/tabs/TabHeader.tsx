@@ -1,16 +1,45 @@
 import type { ReactNode } from "react";
-import { Ellipsis } from "lucide-react";
+import { Ellipsis, type LucideIcon } from "lucide-react";
 import { Button } from "#/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
 
-export function TabHeader({ title, action }: { title: string; action?: ReactNode }) {
+export function TabHeader({
+    title,
+    action,
+    leadingAction,
+}: {
+    title: string;
+    action?: ReactNode;
+    leadingAction?: ReactNode;
+}) {
     return (
         <header className="flex items-center justify-between px-2 py-1.5">
             <h2 className="text-xs capitalize">{title}</h2>
-            {action ?? (
-                <Button type="button" variant="ghost" size="icon" aria-label={`More ${title} actions`}>
-                    <Ellipsis aria-hidden="true" />
-                </Button>
-            )}
+            <div className="flex items-center gap-1">
+                {leadingAction}
+                {action ?? <TooltipIconButton label={`More ${title} options`} icon={Ellipsis} />}
+            </div>
         </header>
+    );
+}
+
+export function TooltipIconButton({
+    label,
+    icon: Icon,
+    onClick,
+}: {
+    label: string;
+    icon: LucideIcon;
+    onClick?: () => void;
+}) {
+    return (
+        <Tooltip>
+            <TooltipTrigger
+                render={<Button type="button" variant="ghost" size="icon" aria-label={label} onClick={onClick} />}
+            >
+                <Icon aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipContent>{label}</TooltipContent>
+        </Tooltip>
     );
 }

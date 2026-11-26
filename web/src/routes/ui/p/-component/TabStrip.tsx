@@ -1,4 +1,4 @@
-import { Ellipsis, FileCode, FileText, Lock, Pin, SquareTerminal, X } from "lucide-react";
+import { Ellipsis, FileCode, FileText, GitGraph, Lock, Pin, SquareTerminal, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { cn } from "#/lib/utils";
 import { buttonVariants } from "#/components/ui/button";
@@ -25,7 +25,7 @@ export interface EditorTab {
     pinned?: boolean;
     readOnly?: boolean;
     /** Defaults to a file. A terminal tab has no git status and shows a shell instead of code. */
-    kind?: "file" | "terminal";
+    kind?: "file" | "terminal" | "graph";
 }
 
 const GIT_COLOR: Record<GitLetter, string> = {
@@ -36,7 +36,13 @@ const GIT_COLOR: Record<GitLetter, string> = {
 };
 
 const tabIcon = (tab: EditorTab) =>
-    tab.kind === "terminal" ? SquareTerminal : /\.(tsx?|jsx?|css|json|go)$/.test(tab.name) ? FileCode : FileText;
+    tab.kind === "graph"
+        ? GitGraph
+        : tab.kind === "terminal"
+          ? SquareTerminal
+          : /\.(tsx?|jsx?|css|json|go)$/.test(tab.name)
+            ? FileCode
+            : FileText;
 
 export function TabStrip({
     tabs,
