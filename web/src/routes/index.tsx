@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, Folder, FolderGit2, FolderOpen, GitBranch, X } from "lucide-react";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
+import { NativeDialog } from "#/components/ui/native-dialog";
 import { api } from "#/lib/api";
 import { projectsOptions } from "#/lib/queries";
 
@@ -17,19 +18,11 @@ function Welcome() {
     const [path, setPath] = useState("");
     const [repositoryUrl, setRepositoryUrl] = useState("");
     const [browsePath, setBrowsePath] = useState<string | null>(null);
-    const dialogRef = useRef<HTMLDialogElement>(null);
     const directoryListing = useQuery({
         queryKey: ["directory-picker", browsePath],
         queryFn: () => api.listDirectories(browsePath ?? ""),
         enabled: activeDialog === "open" && browsePath !== null,
     });
-
-    useEffect(() => {
-        const dialog = dialogRef.current;
-        if (!dialog) return;
-        if (activeDialog && !dialog.open) dialog.showModal();
-        else if (!activeDialog && dialog.open) dialog.close();
-    }, [activeDialog]);
 
     const open = useMutation({
         mutationFn: api.openProject,
@@ -105,41 +98,26 @@ function Welcome() {
                 </ul>
             </section>
 
-            <dialog
-                ref={dialogRef}
-                aria-labelledby="repository-dialog-title"
-                onCancel={() => setActiveDialog(null)}
-                onClose={() => setActiveDialog(null)}
-                className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg rounded-xl border bg-background p-0 text-foreground shadow-lg backdrop:bg-black/50"
+            <NativeDialog
+                open={activeDialog !== null}
+                onOpenChange={(open) => {
+                    if (!open) setActiveDialog(null);
+                }}
+                title={
+                    activeDialog === "clone"
+                        ? "Clone Git Repository"
+                        : browsePath !== null
+                          ? "Select Folder"
+                          : "Open Folder"
+                }
+                description={
+                    activeDialog === "clone"
+                        ? "Enter the URL of the repository you want to clone."
+                        : browsePath !== null
+                          ? "Browse folders available to the server."
+                          : "Enter the path to a local repository."
+                }
             >
-                <div className="flex items-start justify-between gap-4 border-b px-5 py-4">
-                    <div>
-                        <h2 id="repository-dialog-title" className="font-semibold">
-                            {activeDialog === "clone"
-                                ? "Clone Git Repository"
-                                : browsePath !== null
-                                  ? "Select Folder"
-                                  : "Open Folder"}
-                        </h2>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            {activeDialog === "clone"
-                                ? "Enter the URL of the repository you want to clone."
-                                : browsePath !== null
-                                  ? "Browse folders available to the server."
-                                  : "Enter the path to a local repository."}
-                        </p>
-                    </div>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Close dialog"
-                        onClick={() => setActiveDialog(null)}
-                    >
-                        <X />
-                    </Button>
-                </div>
-
                 {activeDialog === "clone" ? (
                     <form
                         className="flex flex-col gap-4 p-5"
@@ -270,7 +248,7 @@ function Welcome() {
                         </div>
                     </form>
                 )}
-            </dialog>
+            </NativeDialog>
         </main>
     );
 }
