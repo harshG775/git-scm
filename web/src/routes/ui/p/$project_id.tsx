@@ -30,11 +30,19 @@ const NAV_ITEMS: { id: NavTab; label: string; icon: LucideIcon; count?: number }
     { id: "prs", label: "PRs", icon: GitPullRequest, count: 3 },
 ];
 
+// mock file content: long lines scroll sideways, many lines scroll down
+const SAMPLE_CODE = Array.from({ length: 60 }, (_, i) => {
+    const n = String(i + 1).padStart(2, " ");
+    return i % 5 === 0
+        ? `${n}  export const handler${i} = async (request: Request, context: { params: Record<string, string>; signal: AbortSignal }) => fetch(\`/api/items/\${context.params.id}?page=${i}\`, { signal: context.signal });`
+        : `${n}  const value${i} = compute(${i}, "line ${i}");`;
+}).join("\n");
+
 function RouteComponent() {
     const { project_id } = Route.useParams();
     const [active, setActive] = useState<NavTab>("files");
     // mock open files, replace with real tab state
-    const [openFiles, setOpenFiles] = useState(["styles.css", "index.tsx"]);
+    const [openFiles, setOpenFiles] = useState(["styles.css", "index.tsx", "graph"]);
     const [activeFile, setActiveFile] = useState<string | null>("index.tsx");
 
     const closeFile = (file: string) => {
@@ -44,8 +52,8 @@ function RouteComponent() {
     };
 
     return (
-        <div className="flex h-dvh bg-background text-foreground">
-            <nav aria-label="Primary sidebar" className="flex flex-col bg-sidebar text-sidebar-foreground">
+        <div className="flex h-dvh snap-x snap-mandatory overflow-x-auto overscroll-x-contain bg-background text-foreground scrollbar-none">
+            <nav aria-label="Primary sidebar" className="flex w-[90%] max-w-lg  shrink-0 snap-center flex-col bg-sidebar text-sidebar-foreground">
                 <div
                     key={active}
                     aria-label={active}
@@ -114,7 +122,7 @@ function RouteComponent() {
                     })}
                 </div>
             </nav>
-            <section aria-label="Editor" className="flex min-h-0 flex-1 flex-col">
+            <section aria-label="Editor" className="flex min-h-0 w-full shrink-0 snap-center flex-col">
                 <div role="tablist" className="flex h-10 shrink-0 overflow-x-auto border-b border-border bg-sidebar font-mono text-xs">
                     {openFiles.map((file) => {
                         const isActive = file === activeFile;
@@ -146,7 +154,11 @@ function RouteComponent() {
                     })}
                 </div>
                 <section className="min-h-0 flex-1 overflow-auto p-3 text-sm">
-                    {activeFile ? `${activeFile} content` : "No file open"}
+                    {activeFile ? (
+                        <pre className="w-max min-w-full font-mono text-xs leading-5">{SAMPLE_CODE}</pre>
+                    ) : (
+                        "No file open"
+                    )}
                 </section>
             </section>
         </div>
