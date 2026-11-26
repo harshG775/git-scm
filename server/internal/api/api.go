@@ -35,6 +35,7 @@ func Register(mux *http.ServeMux, store *config.Store, hub *watch.Hub) {
 	mux.HandleFunc("GET /api/health", a.health)
 	mux.HandleFunc("GET /api/projects", a.listProjects)
 	mux.HandleFunc("POST /api/projects", a.openProject)
+	mux.HandleFunc("GET /api/directories", a.browseDirectories)
 	mux.HandleFunc("DELETE /api/projects/{id}", a.removeProject)
 	mux.HandleFunc("GET /api/p/{id}/tree", a.tree)
 	mux.HandleFunc("GET /api/p/{id}/file", a.readFile)
@@ -53,6 +54,141 @@ func (a *API) health(w http.ResponseWriter, _ *http.Request) {
 
 func (a *API) listProjects(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, a.store.Projects())
+}
+
+type browseDirectory struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
+type directoryListing struct {
+	Path        string            `json:"path"`
+	Parent      string            `json:"parent,omitempty"`
+	Directories []browseDirectory `json:"directories"`
+}
+
+type browseRoot struct {
+	name string
+	path string
+	real string
+}
+
+func (a *API) browseDirectories(w http.ResponseWriter, r *http.Request) {
+	roots, err := browseRoots()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		dirs := make([]browseDirectory, 0, len(roots))
+		for _, root := range roots {
+			dirs = append(dirs, browseDirectory{Name: root.name, Path: root.path})
+		}
+		writeJSON(w, http.StatusOK, directoryListing{Directories: dirs})
+		return
+	}
+
+	abs, err := filepath.Abs(expandHome(path))
+	if err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	real, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		failFS(w, err)
+		return
+	}
+	info, err := os.Stat(real)
+	if err != nil {
+		failFS(w, err)
+		return
+	}
+	if !info.IsDir() {
+		fail(w, http.StatusBadRequest, "path is not a directory")
+		return
+	}
+	root, ok := containingBrowseRoot(real, roots)
+	if !ok {
+		fail(w, http.StatusForbidden, "directory is outside the browse roots")
+		return
+	}
+
+	des, err := os.ReadDir(abs)
+	if err != nil {
+		failFS(w, err)
+		return
+	}
+	dirs := make([]browseDirectory, 0, len(des))
+	for _, de := range des {
+		if de.Name() == ".git" {
+			continue
+		}
+		child := filepath.Join(abs, de.Name())
+		childReal, err := filepath.EvalSymlinks(child)
+		if err != nil {
+			continue
+		}
+		info, err := os.Stat(childReal)
+		if err != nil || !info.IsDir() {
+			continue
+		}
+		if _, ok := containingBrowseRoot(childReal, roots); !ok {
+			continue
+		}
+		dirs = append(dirs, browseDirectory{Name: de.Name(), Path: child})
+	}
+	sort.Slice(dirs, func(i, j int) bool {
+		return strings.ToLower(dirs[i].Name) < strings.ToLower(dirs[j].Name)
+	})
+
+	parent := ""
+	if real != root.real {
+		candidate := filepath.Dir(abs)
+		if parentReal, err := filepath.EvalSymlinks(candidate); err == nil {
+			if _, ok := containingBrowseRoot(parentReal, roots); ok {
+				parent = candidate
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, directoryListing{Path: abs, Parent: parent, Directories: dirs})
+}
+
+func browseRoots() ([]browseRoot, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+	home, err = filepath.Abs(home)
+	if err != nil {
+		return nil, err
+	}
+	homeReal, err := filepath.EvalSymlinks(home)
+	if err != nil {
+		return nil, err
+	}
+	roots := []browseRoot{{name: "Home", path: home, real: homeReal}}
+
+	shared := filepath.Join(home, "storage", "shared")
+	if info, err := os.Stat(shared); err == nil && info.IsDir() {
+		if sharedReal, err := filepath.EvalSymlinks(shared); err == nil && sharedReal != homeReal {
+			roots = append(roots, browseRoot{name: "Shared storage", path: shared, real: sharedReal})
+		}
+	}
+	return roots, nil
+}
+
+func containingBrowseRoot(path string, roots []browseRoot) (browseRoot, bool) {
+	var match browseRoot
+	for _, root := range roots {
+		rel, err := filepath.Rel(root.real, path)
+		if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) &&
+			len(root.real) > len(match.real) {
+			match = root
+		}
+	}
+	return match, match.real != ""
 }
 
 func (a *API) openProject(w http.ResponseWriter, r *http.Request) {

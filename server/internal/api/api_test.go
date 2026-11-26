@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -82,6 +83,76 @@ func TestProjects(t *testing.T) {
 	}
 	if c := e.do("POST", "/api/projects", `{}`, nil).StatusCode; c != 400 {
 		t.Errorf("empty body = %d", c)
+	}
+}
+
+func TestBrowseDirectories(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	shared := filepath.Join(t.TempDir(), "shared")
+	outside := filepath.Join(t.TempDir(), "outside")
+	for _, path := range []string{
+		filepath.Join(home, "Projects", "sample"),
+		filepath.Join(shared, "Documents", "vault"),
+		outside,
+	} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(home, "storage"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(shared, filepath.Join(home, "storage", "shared")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(home, "outside")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+
+	e := newEnv(t)
+	var roots directoryListing
+	res := e.do("GET", "/api/directories", "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("roots status = %d", res.StatusCode)
+	}
+	if err := json.NewDecoder(res.Body).Decode(&roots); err != nil {
+		t.Fatal(err)
+	}
+	if len(roots.Directories) != 2 || roots.Directories[0].Name != "Home" || roots.Directories[1].Name != "Shared storage" {
+		t.Fatalf("roots = %+v", roots.Directories)
+	}
+
+	var homeListing directoryListing
+	res = e.do("GET", "/api/directories?path="+url.QueryEscape(home), "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("home status = %d", res.StatusCode)
+	}
+	if err := json.NewDecoder(res.Body).Decode(&homeListing); err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range homeListing.Directories {
+		if dir.Name == "outside" {
+			t.Fatal("listed a symlink outside the browse roots")
+		}
+	}
+
+	sharedRoot := filepath.Join(home, "storage", "shared")
+	var sharedListing directoryListing
+	res = e.do("GET", "/api/directories?path="+url.QueryEscape(sharedRoot), "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("shared root status = %d", res.StatusCode)
+	}
+	if err := json.NewDecoder(res.Body).Decode(&sharedListing); err != nil {
+		t.Fatal(err)
+	}
+	if sharedListing.Parent != "" || len(sharedListing.Directories) != 1 ||
+		sharedListing.Directories[0].Name != "Documents" {
+		t.Fatalf("shared listing = %+v", sharedListing)
+	}
+
+	if status := e.do("GET", "/api/directories?path="+url.QueryEscape(outside), "", nil).StatusCode; status != http.StatusForbidden {
+		t.Errorf("outside root status = %d", status)
 	}
 }
 

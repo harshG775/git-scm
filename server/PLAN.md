@@ -18,6 +18,8 @@ API shape: see [../PLAN.md](../PLAN.md).
   localhost or IP-literal Host (blocks DNS rebinding; others via `--allow-hosts`), and any Origin must be the
   server itself (blocks cross-site POSTs). The Vite dev proxy forwards only same-origin requests (see
   `vite.config.ts`). Anything new that is dangerous (terminal, credentials) depends on this.
+- The Welcome folder browser is limited to the server user's home and, when present, `~/storage/shared`.
+  Symlinks are browsable only when their targets remain inside those roots.
 - Flags: `--addr`, `--cert`, `--key`. Graceful shutdown.
 
 ## Done

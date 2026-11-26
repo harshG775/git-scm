@@ -17,6 +17,7 @@ UX modeled on VS Code (Welcome tab, Explorer, file tabs, built-in SCM view).
 | --- | --- | --- |
 | GET | `/api/health` | |
 | GET, POST | `/api/projects` | list recents; open/add `{path}` returns `{id, name, path}` |
+| GET | `/api/directories?path=` | list browsable directories under the server user's home and shared storage roots |
 | DELETE | `/api/projects/{id}` | forget a project; the directory is untouched |
 | GET | `/api/p/{id}/tree?path=` | one directory level |
 | GET | `/api/p/{id}/file?path=` | returns `ETag` |

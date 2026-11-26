@@ -7,6 +7,17 @@ export interface Project {
     lastOpened: string;
 }
 
+export interface DirectoryChoice {
+    name: string;
+    path: string;
+}
+
+export interface DirectoryListing {
+    path: string;
+    parent?: string;
+    directories: DirectoryChoice[];
+}
+
 export interface Entry {
     name: string;
     /** Slash-separated, relative to the project root. */
@@ -169,6 +180,9 @@ const gitPost = (id: string, action: string, body?: unknown) =>
 
 export const api = {
     listProjects: async (): Promise<Project[]> => (await request("/api/projects")).json(),
+
+    listDirectories: async (path = ""): Promise<DirectoryListing> =>
+        (await request(`/api/directories${path ? `?path=${encodeURIComponent(path)}` : ""}`)).json(),
 
     openProject: async (path: string): Promise<Project> =>
         (
