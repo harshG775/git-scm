@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import { ApiError, api } from "./api";
 
 export const projectsOptions = queryOptions({
@@ -36,6 +36,14 @@ export const gitStashesOptions = (projectId: string) =>
     queryOptions({
         queryKey: ["git", projectId, "stashes"],
         queryFn: () => api.gitStashes(projectId),
+    });
+
+export const gitLogOptions = (projectId: string, scope: "local" | "all", limit: number) =>
+    queryOptions({
+        queryKey: ["git", projectId, "log", scope, limit],
+        queryFn: () => api.gitLog(projectId, scope, limit),
+        // "Load more" and the scope toggle keep showing the old graph until the new one arrives.
+        placeholderData: keepPreviousData,
     });
 
 export const gitDiffOptions = (projectId: string, path: string, staged: boolean) =>

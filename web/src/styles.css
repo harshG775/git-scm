@@ -120,6 +120,10 @@
 @layer base {
     * {
         @apply border-border outline-ring/50;
+        /* Slim scrollbars everywhere (no arrow buttons), tinted to the theme. Components that hide
+           the bar entirely (the tab strip) override this with their own utility class. */
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in oklab, var(--muted-foreground) 45%, transparent) transparent;
     }
     html,
     body,

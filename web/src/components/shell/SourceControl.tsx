@@ -20,6 +20,7 @@ import { resync } from "#/lib/live";
 import { gitStatusOptions } from "#/lib/queries";
 import { activeIdOf, useFileNav } from "#/lib/use-file-nav";
 import { useWorkspace } from "#/stores/workspace";
+import { OpenGraphButton } from "./OpenGraphButton";
 import { PanelHeader } from "./panels";
 
 type Notice = { kind: "ok" | "error"; text: string };
@@ -59,10 +60,24 @@ export function SourceControl({ projectId }: { projectId: string }) {
 
     const refresh = () => resync(queryClient, projectId);
 
-    if (isPending) return <Shell onRefresh={refresh}>Loading…</Shell>;
-    if (error) return <Shell onRefresh={refresh}>{error.message}</Shell>;
+    if (isPending)
+        return (
+            <Shell projectId={projectId} onRefresh={refresh}>
+                Loading…
+            </Shell>
+        );
+    if (error)
+        return (
+            <Shell projectId={projectId} onRefresh={refresh}>
+                {error.message}
+            </Shell>
+        );
     if (!status.isRepo) {
-        return <Shell onRefresh={refresh}>Not a git repository. Run `git init` in this folder from Termux.</Shell>;
+        return (
+            <Shell projectId={projectId} onRefresh={refresh}>
+                Not a git repository. Run `git init` in this folder from Termux.
+            </Shell>
+        );
     }
 
     const paths = (cs: GitChange[]) => cs.flatMap((c) => (c.origPath ? [c.path, c.origPath] : [c.path]));
@@ -88,7 +103,11 @@ export function SourceControl({ projectId }: { projectId: string }) {
     const canCommit = status.staged.length > 0 && message.trim() !== "" && !busy;
 
     return (
-        <Shell onRefresh={refresh} header={<BranchBar status={status} busy={busy} act={act} projectId={projectId} />}>
+        <Shell
+            projectId={projectId}
+            onRefresh={refresh}
+            header={<BranchBar status={status} busy={busy} act={act} projectId={projectId} />}
+        >
             <div className="border-b p-3">
                 <textarea
                     value={message}
@@ -190,10 +209,12 @@ export function SourceControl({ projectId }: { projectId: string }) {
 }
 
 function Shell({
+    projectId,
     children,
     header,
     onRefresh,
 }: {
+    projectId: string;
     children: React.ReactNode;
     header?: React.ReactNode;
     onRefresh: () => void;
@@ -201,9 +222,12 @@ function Shell({
     return (
         <div className="flex h-full flex-col">
             <PanelHeader title="Source Control">
-                <button type="button" aria-label="Refresh" className={iconBtn} onClick={onRefresh}>
-                    <RefreshCw className="size-4" />
-                </button>
+                <span className="flex">
+                    <OpenGraphButton projectId={projectId} />
+                    <button type="button" aria-label="Refresh" className={iconBtn} onClick={onRefresh}>
+                        <RefreshCw className="size-4" />
+                    </button>
+                </span>
             </PanelHeader>
             {header}
             <div className="min-h-0 flex-1 overflow-y-auto pb-4">

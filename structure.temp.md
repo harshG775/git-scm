@@ -2,6 +2,6 @@
 
 
 ## branches
-- local (dropdown)
-- remote (dropdown)
-- stash (dropdown)
+- local (dropdown) 
+- remote (dropdown) 
+- stash (dropdown) 

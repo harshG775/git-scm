@@ -36,6 +36,9 @@ API shape: see [../PLAN.md](../PLAN.md).
 
 ## M4
 
+- [x] Git Graph tab (`?view=graph`): lane layout (`lib/graph.ts`, property-tested), SVG lines, ref badges, uncommitted
+      and stash rows, Local/All scope, load more, commit details. Opened from the Source Control and Branches headers.
+- [x] thin scrollbars everywhere
 - [x] Branches panel as collapsible Local / Remote / Stash sections (open state remembered): create + switch, checkout; fetch and track remote branches; stash, apply, pop, drop
 
 - [ ] CodeMirror 6, command palette button, search, offline shell

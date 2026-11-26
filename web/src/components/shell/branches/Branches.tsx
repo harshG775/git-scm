@@ -5,6 +5,7 @@ import { resync } from "#/lib/live";
 import { gitBranchesOptions, gitRemotesOptions, gitStashesOptions } from "#/lib/queries";
 import { useGitAction } from "#/lib/use-git-action";
 import { useWorkspace } from "#/stores/workspace";
+import { OpenGraphButton } from "../OpenGraphButton";
 import { PanelHeader } from "../panels";
 import { Local } from "./Local";
 import { Empty, Notice } from "./Notice";
@@ -38,14 +39,17 @@ export function Branches({ projectId }: { projectId: string }) {
     return (
         <div className="flex h-full flex-col">
             <PanelHeader title="Branches">
-                <button
-                    type="button"
-                    aria-label="Refresh"
-                    className="flex size-11 items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground md:size-7"
-                    onClick={() => resync(queryClient, projectId)}
-                >
-                    <RefreshCw className="size-4" />
-                </button>
+                <span className="flex">
+                    <OpenGraphButton projectId={projectId} />
+                    <button
+                        type="button"
+                        aria-label="Refresh"
+                        className="flex size-11 items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground md:size-7"
+                        onClick={() => resync(queryClient, projectId)}
+                    >
+                        <RefreshCw className="size-4" />
+                    </button>
+                </span>
             </PanelHeader>
 
             <Notice notice={action.notice} onDismiss={() => action.setNotice(null)} />

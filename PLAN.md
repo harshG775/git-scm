@@ -24,6 +24,7 @@ UX modeled on VS Code (Welcome tab, Explorer, file tabs, built-in SCM view).
 | GET | `/api/p/{id}/git/status` | branch, ahead/behind, staged, changes, untracked |
 | GET | `/api/p/{id}/git/diff?path=&staged=` | |
 | POST | `/api/p/{id}/git/{stage,unstage,discard}` | `{paths}`; 204 |
+| GET | `/api/p/{id}/git/log?scope=local\|all&limit=` | commits newest first, each before its parents, with `parents[]`, `refs[]`; plus `uncommitted`, `stashes[]` (with `base`), `hasMore` |
 | GET | `/api/p/{id}/git/branches` | `{isRepo, head, detached, branches[]}`; current first, then most recent |
 | POST | `/api/p/{id}/git/branches` | `{name}`; creates at HEAD and switches; 204 |
 | POST | `/api/p/{id}/git/checkout` | `{name}`; existing local branch only; 422 with git's message if refused |

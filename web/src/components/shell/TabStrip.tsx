@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { GitCompare, X } from "lucide-react";
+import { GitCompare, GitGraph, X } from "lucide-react";
 import { cn } from "cn";
 import { useFileNav } from "#/lib/use-file-nav";
 import { useWorkspace } from "#/stores/workspace";
@@ -24,7 +24,7 @@ export function TabStrip({ projectId, active }: { projectId: string; active: str
         >
             {tabs.map((tab) => {
                 const isActive = tab.id === active;
-                const label = tab.path.split("/").pop();
+                const label = tab.kind === "graph" ? "Git Graph" : tab.path.split("/").pop();
                 const dirty = tab.buffer !== undefined;
                 return (
                     <div
@@ -46,6 +46,7 @@ export function TabStrip({ projectId, active }: { projectId: string; active: str
                             onClick={() => nav.activate(tab)}
                         >
                             {tab.kind === "diff" && <GitCompare className="size-3.5 shrink-0" />}
+                            {tab.kind === "graph" && <GitGraph className="size-3.5 shrink-0" />}
                             <span className="truncate">{label}</span>
                             {tab.kind === "diff" && (
                                 <span className="shrink-0 text-xs text-muted-foreground">

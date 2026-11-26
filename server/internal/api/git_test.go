@@ -437,3 +437,51 @@ func TestOutsideStashAndBranchChangesEmitEvents(t *testing.T) {
 		t.Errorf("branch create event = %v, want git", ev)
 	}
 }
+
+func TestLogOverHTTP(t *testing.T) {
+	e := gitEnv(t)
+	os.WriteFile(filepath.Join(e.root, "src", "a.txt"), []byte("second"), 0o644)
+	e.sh("commit", "-qam", "second commit")
+	os.WriteFile(filepath.Join(e.root, "dirty.txt"), []byte("x"), 0o644)
+
+	var l struct {
+		IsRepo      bool `json:"isRepo"`
+		Head        string
+		HeadBranch  string `json:"headBranch"`
+		Uncommitted int    `json:"uncommitted"`
+		HasMore     bool   `json:"hasMore"`
+		Commits     []struct {
+			Oid     string   `json:"oid"`
+			Parents []string `json:"parents"`
+			Subject string   `json:"subject"`
+			Refs    []struct {
+				Name    string `json:"name"`
+				Kind    string `json:"kind"`
+				Current bool   `json:"current"`
+			} `json:"refs"`
+		} `json:"commits"`
+	}
+	c, body := e.get("/git/log?limit=50")
+	if c != 200 {
+		t.Fatalf("log = %d %s", c, body)
+	}
+	json.Unmarshal([]byte(body), &l)
+	if !l.IsRepo || l.HeadBranch != "main" || l.Uncommitted != 1 || len(l.Commits) != 2 || l.HasMore {
+		t.Fatalf("log = %s", body)
+	}
+	top := l.Commits[0]
+	if top.Subject != "second commit" || len(top.Parents) != 1 || top.Parents[0] != l.Commits[1].Oid ||
+		len(top.Refs) != 1 || top.Refs[0].Name != "main" || !top.Refs[0].Current {
+		t.Errorf("top = %+v", top)
+	}
+	if c, _ := e.get("/git/log?limit=1"); c != 200 {
+		t.Errorf("limit = %d", c)
+	}
+	_, body = e.get("/git/log?limit=1&scope=nonsense")
+	if !strings.Contains(body, `"hasMore":true`) {
+		t.Errorf("limit 1 of 2 must report hasMore: %s", body)
+	}
+	if c := e.do("GET", "/api/p/nope/git/log", "", nil).StatusCode; c != 404 {
+		t.Errorf("unknown project = %d", c)
+	}
+}

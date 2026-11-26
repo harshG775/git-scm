@@ -4,6 +4,7 @@ import { Link, Navigate, createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft, Files } from "lucide-react";
 import { cn } from "cn";
 import { DiffView } from "#/components/shell/DiffView";
+import { GraphView } from "#/components/shell/GraphView";
 import { FileView } from "#/components/shell/FileView";
 import { PanelButtons, SidebarContent } from "#/components/shell/panels";
 import { TabStrip } from "#/components/shell/TabStrip";
@@ -13,13 +14,16 @@ import { activeIdOf, type TabSearch } from "#/lib/use-file-nav";
 import { useWorkspace } from "#/stores/workspace";
 
 export const Route = createFileRoute("/p/$projectId")({
-    // The active tab: `?file=<path>` for a file, `?diff=<path>&staged=true` for a diff.
+    // The active tab: `?file=<path>` for a file, `?diff=<path>&staged=true` for a diff, `?view=graph`.
     validateSearch: (search: Record<string, unknown>): TabSearch => {
         const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
         const file = str(search.file);
-        return file
-            ? { file }
-            : { diff: str(search.diff), staged: search.staged === true || search.staged === "true" ? true : undefined };
+        if (file) return { file };
+        if (search.view === "graph") return { view: "graph" };
+        return {
+            diff: str(search.diff),
+            staged: search.staged === true || search.staged === "true" ? true : undefined,
+        };
     },
     component: Shell,
 });
@@ -30,7 +34,7 @@ const NAV = "h-[calc(3.5rem+env(safe-area-inset-bottom))]";
 function Shell() {
     const { projectId } = Route.useParams();
     const search = Route.useSearch();
-    const { file, diff } = search;
+    const { file, diff, view } = search;
     const staged = search.staged === true;
     const activeId = activeIdOf(search);
     const { data: projects, isSuccess } = useQuery(projectsOptions);
@@ -39,6 +43,7 @@ function Shell() {
     const enterProject = useWorkspace((s) => s.enterProject);
     const openFile = useWorkspace((s) => s.openFile);
     const openDiff = useWorkspace((s) => s.openDiff);
+    const openGraph = useWorkspace((s) => s.openGraph);
     const sidebarOpen = useWorkspace((s) => s.sidebarOpen);
     const drawerOpen = useWorkspace((s) => s.drawerOpen);
     const closeDrawer = useWorkspace((s) => s.closeDrawer);
@@ -46,11 +51,12 @@ function Shell() {
     const live = useLiveUpdates(projectId);
 
     useEffect(() => enterProject(projectId), [projectId, enterProject]);
-    // A deep link or reload with ?file= or ?diff= should also have a tab.
+    // A deep link or reload with ?file=, ?diff= or ?view= should also have a tab.
     useEffect(() => {
         if (file) openFile(file);
         else if (diff) openDiff(diff, staged);
-    }, [file, diff, staged, openFile, openDiff]);
+        else if (view === "graph") openGraph();
+    }, [file, diff, staged, view, openFile, openDiff, openGraph]);
 
     // Changed files (staged or not, each counted once), shown as a badge on the Source Control icon.
     const { data: git } = useQuery(gitStatusOptions(projectId));
@@ -98,6 +104,8 @@ function Shell() {
                         <FileView projectId={projectId} path={file} />
                     ) : diff ? (
                         <DiffView key={activeId} projectId={projectId} path={diff} staged={staged} />
+                    ) : view === "graph" ? (
+                        <GraphView projectId={projectId} />
                     ) : (
                         <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
                             Pick a file from the Explorer, or a change from Source Control.

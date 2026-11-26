@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +28,7 @@ func (a *API) registerGit(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/p/{id}/git/stage", a.gitPaths((git.Repo).Stage))
 	mux.HandleFunc("POST /api/p/{id}/git/unstage", a.gitPaths((git.Repo).Unstage))
 	mux.HandleFunc("POST /api/p/{id}/git/discard", a.gitPaths((git.Repo).Discard))
+	mux.HandleFunc("GET /api/p/{id}/git/log", a.gitLog)
 	mux.HandleFunc("GET /api/p/{id}/git/branches", a.gitBranches)
 	mux.HandleFunc("POST /api/p/{id}/git/branches", a.gitNamed((git.Repo).CreateBranch))
 	mux.HandleFunc("POST /api/p/{id}/git/checkout", a.gitNamed((git.Repo).SwitchBranch))
@@ -107,6 +109,28 @@ func (a *API) gitDiff(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	io.WriteString(w, diff)
+}
+
+// gitLog returns commit history with topology for the graph: ?scope=local|all &limit=100.
+func (a *API) gitLog(w http.ResponseWriter, r *http.Request) {
+	_, repo, ok := a.repo(w, r)
+	if !ok {
+		return
+	}
+	scope := r.URL.Query().Get("scope")
+	if scope != git.ScopeAll {
+		scope = git.ScopeLocal
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
+	defer cancel()
+	log, err := repo.Log(ctx, scope, limit)
+	if err != nil {
+		failGit(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, log)
 }
 
 func (a *API) gitBranches(w http.ResponseWriter, r *http.Request) {

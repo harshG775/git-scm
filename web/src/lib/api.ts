@@ -89,10 +89,46 @@ export interface GitStash {
     auto: boolean;
     /** Unix seconds. */
     time: number;
+    /** The commit the stash was made on. */
+    base: string;
 }
 
 export interface GitStashes {
     isRepo: boolean;
+    stashes: GitStash[];
+}
+
+export interface GitRef {
+    name: string;
+    kind: "branch" | "remote" | "tag";
+    current?: boolean;
+}
+
+export interface GitCommit {
+    oid: string;
+    /** Parent ids, first parent first (for a merge, the branch that was merged into). */
+    parents: string[];
+    author: string;
+    email: string;
+    /** Unix seconds. */
+    time: number;
+    subject: string;
+    body: string;
+    refs: GitRef[];
+}
+
+export interface GitLog {
+    isRepo: boolean;
+    /** The commit HEAD points at; "" before the first commit. */
+    head: string;
+    headBranch: string;
+    detached: boolean;
+    /** Files with uncommitted changes. */
+    uncommitted: number;
+    /** Newest first, and every commit comes before its parents. */
+    commits: GitCommit[];
+    hasMore: boolean;
+    /** Each stash carries the commit it was made on (`base`). */
     stashes: GitStash[];
 }
 
@@ -169,6 +205,9 @@ export const api = {
     gitFetch: async (id: string): Promise<{ output: string }> => (await gitPost(id, "fetch")).json(),
     /** Creates a local branch tracking `ref` ("origin/feature") and switches to it. */
     gitCheckoutRemote: (id: string, ref: string) => gitPost(id, "checkout-remote", { name: ref }),
+
+    gitLog: async (id: string, scope: "local" | "all", limit: number): Promise<GitLog> =>
+        (await request(`${project(id)}/git/log?scope=${scope}&limit=${limit}`)).json(),
 
     gitStashes: async (id: string): Promise<GitStashes> => (await request(`${project(id)}/git/stashes`)).json(),
     gitStash: (id: string, message: string, includeUntracked: boolean) =>

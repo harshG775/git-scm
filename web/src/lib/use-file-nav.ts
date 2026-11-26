@@ -1,19 +1,25 @@
 import { useNavigate } from "@tanstack/react-router";
-import { diffId, useWorkspace, type Tab } from "#/stores/workspace";
+import { GRAPH_ID, diffId, useWorkspace, type Tab } from "#/stores/workspace";
 
-/** The route's search params. `file` and `diff` are mutually exclusive. */
+/** The route's search params. `file`, `diff` and `view` are mutually exclusive. */
 export interface TabSearch {
     file?: string;
     diff?: string;
     staged?: boolean;
+    /** A tab that is not a file: the commit graph. */
+    view?: "graph";
 }
 
 /** Id of the tab the URL points at, matching `Tab.id`. */
 export const activeIdOf = (s: TabSearch): string | null =>
-    s.file ?? (s.diff ? diffId(s.diff, s.staged === true) : null);
+    s.file ?? (s.diff ? diffId(s.diff, s.staged === true) : s.view === "graph" ? GRAPH_ID : null);
 
 const searchFor = (tab: Pick<Tab, "kind" | "path" | "staged">): TabSearch =>
-    tab.kind === "file" ? { file: tab.path } : { diff: tab.path, staged: tab.staged || undefined };
+    tab.kind === "file"
+        ? { file: tab.path }
+        : tab.kind === "graph"
+          ? { view: "graph" }
+          : { diff: tab.path, staged: tab.staged || undefined };
 
 /** Opens, activates and closes tabs; the active tab is encoded in the URL search params. */
 export function useFileNav(projectId: string, activeId: string | null) {
@@ -35,6 +41,10 @@ export function useFileNav(projectId: string, activeId: string | null) {
         openDiff: (path: string, staged: boolean) => {
             useWorkspace.getState().openDiff(path, staged);
             return show({ kind: "diff", path, staged });
+        },
+        openGraph: () => {
+            useWorkspace.getState().openGraph();
+            return show({ kind: "graph", path: "graph" });
         },
         activate: (tab: Tab) => go(tab),
         close: (id: string) => {

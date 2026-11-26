@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export type SidebarPanel = "explorer" | "search" | "git" | "branches";
-export type TabKind = "file" | "diff";
+export type TabKind = "file" | "diff" | "graph";
 /** Collapsible sections of the Branches panel. */
 export type BranchSection = "local" | "remote" | "stash";
 
@@ -18,6 +18,9 @@ export interface Tab {
     /** The file changed on disk while `buffer` holds unsaved edits: the user must pick a side. */
     changedOnDisk?: boolean;
 }
+
+/** The graph is a singleton tab. */
+export const GRAPH_ID = "view:graph";
 
 export const diffId = (path: string, staged: boolean) => `diff:${staged ? "s" : "w"}:${path}`;
 
@@ -41,6 +44,7 @@ interface WorkspaceState {
     enterProject: (id: string) => void;
     openFile: (path: string) => void;
     openDiff: (path: string, staged: boolean) => void;
+    openGraph: () => void;
     /** Closes a tab and returns the tab that should be active afterwards (null if none are left). */
     closeTab: (id: string, activeId: string | null) => Tab | null;
     /** Setting `undefined` makes the tab clean, which also clears any changed-on-disk flag. */
@@ -85,6 +89,13 @@ export const useWorkspace = create<WorkspaceState>()(
                         ? s
                         : { tabs: [...s.tabs, { id, kind: "diff", path, staged }] };
                 }),
+
+            openGraph: () =>
+                set((s) =>
+                    s.tabs.some((t) => t.id === GRAPH_ID)
+                        ? s
+                        : { tabs: [...s.tabs, { id: GRAPH_ID, kind: "graph", path: "graph" }] },
+                ),
 
             closeTab: (id, activeId) => {
                 const { tabs } = get();

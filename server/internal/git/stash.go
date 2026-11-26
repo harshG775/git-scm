@@ -20,6 +20,8 @@ type Stash struct {
 	Title  string `json:"title"`
 	// Auto is true when no message was given.
 	Auto bool `json:"auto"`
+	// Base is the commit the stash was made on (HEAD at that moment); the graph hangs it there.
+	Base string `json:"base"`
 	// Time is when it was stashed, in Unix seconds.
 	Time int64 `json:"time"`
 }
@@ -37,7 +39,7 @@ var stashRef = regexp.MustCompile(`^stash@\{(\d+)\}$`)
 
 func (r Repo) Stashes(ctx context.Context) (StashList, error) {
 	list := StashList{Stashes: []Stash{}}
-	res, err := r.run(ctx, opts{}, "stash", "list", "--format=%gd%x00%H%x00%ct%x00%gs")
+	res, err := r.run(ctx, opts{}, "stash", "list", "--format=%gd%x00%H%x00%ct%x00%gs%x00%P")
 	if err != nil {
 		var ge *Error
 		if errors.As(err, &ge) && strings.Contains(ge.Msg, "not a git repository") {
@@ -48,7 +50,7 @@ func (r Repo) Stashes(ctx context.Context) (StashList, error) {
 	list.IsRepo = true
 	for _, line := range strings.Split(string(res.out), "\n") {
 		f := strings.Split(strings.TrimRight(line, "\r"), "\x00")
-		if len(f) != 4 {
+		if len(f) != 5 {
 			continue
 		}
 		m := stashRef.FindStringSubmatch(f[0])
@@ -58,6 +60,7 @@ func (r Repo) Stashes(ctx context.Context) (StashList, error) {
 		idx, _ := strconv.Atoi(m[1])
 		t, _ := strconv.ParseInt(f[2], 10, 64)
 		s := Stash{Index: idx, Oid: f[1], Time: t, Title: f[3]}
+		s.Base, _, _ = strings.Cut(f[4], " ") // parents: the base commit, then the index commit
 		if sm := stashAuto.FindStringSubmatch(f[3]); sm != nil {
 			s.Branch, s.Title, s.Auto = sm[1], sm[2], true
 		} else if sm := stashCustom.FindStringSubmatch(f[3]); sm != nil {

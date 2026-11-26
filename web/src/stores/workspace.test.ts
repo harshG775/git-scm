@@ -108,3 +108,12 @@ test("Branches sections: Local starts open, the others closed, and each toggles 
     s().toggleBranchSection("remote");
     expect(s().branchSections.remote).toBe(false);
 });
+
+test("the graph is a single tab, however often it is opened", () => {
+    s().openGraph();
+    s().openGraph();
+    s().openFile("a");
+    expect(ids()).toEqual(["view:graph", "a"]);
+    expect(s().tabs[0].kind).toBe("graph");
+    expect(s().closeTab("view:graph", "view:graph")?.id).toBe("a");
+});

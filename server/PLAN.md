@@ -41,6 +41,9 @@ API shape: see [../PLAN.md](../PLAN.md).
 
 ## M4
 - [x] branches: list, create (+switch), checkout (git's refusal message passed through; names validated)
+- [x] commit log for the graph: `git log --date-order` (a commit never precedes a child, which the lane layout
+  needs), decorations from `for-each-ref` (not `%D`, which cannot tell a local `origin/x` from a remote), stash
+  commits kept out of the log and returned separately with their base commit
 - [x] remote branches (list, fetch --prune, checkout as tracking branch) and stash (push, list, apply, pop, drop).
   Stash actions carry the stash's commit id and are refused if the list shifted, so a stale screen can never
   act on the wrong stash. `stash --include-untracked` needs git's own pathspec magic, so it runs without
