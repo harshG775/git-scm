@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
     Archive,
     ChevronDown,
+    ChevronsUpDown,
     FileDiff,
     Folder,
     GitBranch,
@@ -12,6 +13,7 @@ import {
     type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
+import { Collapsible, CollapsibleContent as CollapsiblePanel, CollapsibleTrigger } from "#/components/ui/collapsible";
 import { cn } from "#/lib/utils";
 import { TabStrip, type EditorTab } from "./-component/TabStrip";
 
@@ -72,49 +74,72 @@ function RouteComponent() {
 
     return (
         <div className="flex h-dvh snap-x snap-mandatory overflow-x-auto overscroll-x-contain bg-background text-foreground scrollbar-none">
-            <nav
+            <div
                 aria-label="Primary sidebar"
-                className="flex w-[90%] max-w-lg shrink-0 snap-center flex-col bg-sidebar text-sidebar-foreground"
+                className="flex flex-col w-[90%] max-w-lg shrink-0 snap-center bg-sidebar text-sidebar-foreground"
             >
-                <div
+                <header className="flex h-10 items-center justify-between gap-2 border-b border-sidebar-border px-2 text-xs">
+                    <div className="flex h-10 items-center justify-between gap-1 text-xs">
+                        <button
+                            type="button"
+                            aria-label="Select repository"
+                            className="flex shrink-0 items-center gap-1.5 font-mono font-semibold text-sidebar-foreground"
+                        >
+                            <ChevronsUpDown className="size-4 shrink-0" />
+                            <span className="truncate">repository</span>
+                        </button>
+                        <span className="shrink-0 text-muted-foreground">/</span>
+                        <span className="truncate font-mono">pocket-notes</span>
+                        <span className="shrink-0 text-muted-foreground">/</span>
+                        <button
+                            type="button"
+                            className="flex shrink-0 items-center gap-1.5 font-mono text-sidebar-foreground"
+                        >
+                            <GitBranch className="size-4 text-muted-foreground" />
+                            main
+                        </button>
+                    </div>
+                    <button
+                        type="button"
+                        aria-label="Sync Changes"
+                        className="ml-auto flex h-10 min-w-0 items-center gap-1 rounded-lg px-2 text-xs text-muted-foreground active:bg-sidebar-accent"
+                    >
+                        <RefreshCw className="size-4 shrink-0" />
+                    </button>
+                </header>
+                <section
                     key={active}
                     aria-label={active}
                     data-project={project_id}
-                    className="flex-1 min-h-0 overflow-y-auto"
+                    className="flex-1 min-h-0 overflow-y-auto flex flex-col"
                 >
-                    <header className="flex h-10 items-center justify-between gap-2 border-b border-sidebar-border px-2 text-xs">
-                        <div className="flex h-10 items-center justify-between gap-1 text-xs">
-                            <button
-                                type="button"
-                                aria-label="Select repository"
-                                className="flex shrink-0 items-center gap-1.5 font-mono font-semibold text-sidebar-foreground"
-                            >
-                                <ChevronDown className="size-4 shrink-0" />
-                                <span className="truncate">repository</span>
-                            </button>
-                            <span className="shrink-0 text-muted-foreground">/</span>
-                            <span className="truncate font-mono">pocket-notes</span>
-                            <span className="shrink-0 text-muted-foreground">/</span>
-                            <button
-                                type="button"
-                                className="flex shrink-0 items-center gap-1.5 font-mono text-sidebar-foreground"
-                            >
-                                <GitBranch className="size-4 text-muted-foreground" />
-                                main
-                            </button>
-                        </div>
-                        <button
-                            type="button"
-                            aria-label="Sync Changes"
-                            className="ml-auto flex h-10 min-w-0 items-center gap-1 rounded-lg px-2 text-xs text-muted-foreground active:bg-sidebar-accent"
-                        >
-                            <RefreshCw className="size-4 shrink-0" />
-                        </button>
-                    </header>
-                    <section className="px-3 py-2 text-sm capitalize">{active}</section>
-                    <div>{/* active content */}</div>
-                </div>
-                <div className="sticky bottom-0 grid grid-cols-5 border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)]">
+                    <div className="text-xs capitalize px-2 py-1.5">{active}</div>
+
+                    {/* content */}
+                    {[1, 2, 3].map((section) => (
+                        <Collapsible key={section} defaultOpen>
+                            <section className="border-b border-sidebar-border">
+                                <CollapsibleTrigger className="group flex min-h-10 w-full items-center gap-1 text-left text-sm font-medium">
+                                    <ChevronDown
+                                        className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
+                                        aria-hidden="true"
+                                    />
+                                    <span>content title</span>
+                                </CollapsibleTrigger>
+                                <CollapsiblePanel className=" px-3 py-2">
+                                    {Array.from({ length: 4 }, (_, paragraph) => (
+                                        <p key={paragraph}>
+                                            Lorem ipsum dolor sit amet consectetur adipisicing elit. Quos delectus, ab
+                                            itaque commodi, nemo hic corrupti quia assumenda id blanditiis ut saepe.
+                                            Nemo distinctio possimus dignissimos odio nisi officiis voluptatum!
+                                        </p>
+                                    ))}
+                                </CollapsiblePanel>
+                            </section>
+                        </Collapsible>
+                    ))}
+                </section>
+                <nav className="sticky bottom-0 grid grid-cols-5 border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)]">
                     {NAV_ITEMS.map(({ id, label, icon: Icon, count }) => {
                         const isActive = id === active;
                         return (
@@ -145,8 +170,8 @@ function RouteComponent() {
                             </button>
                         );
                     })}
-                </div>
-            </nav>
+                </nav>
+            </div>
             <section aria-label="Editor" className="flex min-h-0 w-full shrink-0 snap-center flex-col">
                 <TabStrip tabs={tabs} setTabs={setTabs} activeId={activeId} setActiveId={setActiveId} />
                 <section className="min-h-0 flex-1 overflow-auto p-3 text-sm">
