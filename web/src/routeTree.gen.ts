@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PProjectIdRouteImport } from './routes/p.$projectId'
+import { Route as UiPProject_idRouteImport } from './routes/ui/p/$project_id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const PProjectIdRoute = PProjectIdRouteImport.update({
   path: '/p/$projectId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UiPProject_idRoute = UiPProject_idRouteImport.update({
+  id: '/ui/p/$project_id',
+  path: '/ui/p/$project_id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/p/$projectId': typeof PProjectIdRoute
+  '/ui/p/$project_id': typeof UiPProject_idRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/p/$projectId': typeof PProjectIdRoute
+  '/ui/p/$project_id': typeof UiPProject_idRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/p/$projectId': typeof PProjectIdRoute
+  '/ui/p/$project_id': typeof UiPProject_idRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/p/$projectId'
+  fullPaths: '/' | '/p/$projectId' | '/ui/p/$project_id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/p/$projectId'
-  id: '__root__' | '/' | '/p/$projectId'
+  to: '/' | '/p/$projectId' | '/ui/p/$project_id'
+  id: '__root__' | '/' | '/p/$projectId' | '/ui/p/$project_id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PProjectIdRoute: typeof PProjectIdRoute
+  UiPProject_idRoute: typeof UiPProject_idRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PProjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ui/p/$project_id': {
+      id: '/ui/p/$project_id'
+      path: '/ui/p/$project_id'
+      fullPath: '/ui/p/$project_id'
+      preLoaderRoute: typeof UiPProject_idRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PProjectIdRoute: PProjectIdRoute,
+  UiPProject_idRoute: UiPProject_idRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
