@@ -8,14 +8,15 @@ import {
     Folder,
     GitBranch,
     GitPullRequest,
-    PanelLeft,
-    PanelRight,
+    PanelLeftOpen,
+    PanelLeftClose,
     RefreshCw,
     type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { Button } from "#/components/ui/button";
 import { GraphView } from "#/components/shell/GraphView";
+import { PanelResizer } from "#/components/shell/PanelResizer";
 import { usePanelSnap } from "#/contexts/PanelSnapContext";
 import { cn } from "#/lib/utils";
 import { BranchesTab } from "./-component/tabs/BranchesTab";
@@ -73,21 +74,83 @@ const TERMINAL_SESSION: { cmd: string; out?: string }[] = [
     { cmd: "vp test", out: "✓ src/lib/diff.test.ts (12)\n✓ src/lib/graph.test.ts (8)\n\nTest Files  2 passed (2)" },
 ];
 
+const SIDEBAR_MIN = 240;
+const SIDEBAR_MAX = 560;
+const SIDEBAR_DEFAULT = 320;
+const SIDEBAR_KEY = "workspace.sidebarWidth";
+const SIDEBAR_OPEN_KEY = "workspace.sidebarOpen";
+
+function loadSidebarWidth() {
+    try {
+        const saved = Number(localStorage.getItem(SIDEBAR_KEY));
+        if (saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX) return saved;
+    } catch {
+        // storage unavailable, use default
+    }
+    return SIDEBAR_DEFAULT;
+}
+
+function loadSidebarOpen() {
+    try {
+        return localStorage.getItem(SIDEBAR_OPEN_KEY) !== "0";
+    } catch {
+        return true;
+    }
+}
+
+function saveSetting(key: string, value: string) {
+    try {
+        localStorage.setItem(key, value);
+    } catch {
+        // storage unavailable, setting just won't persist
+    }
+}
+
 function RouteComponent() {
     const { project_id } = Route.useParams();
     const { containerRef, onScroll, snapTo } = usePanelSnap();
+    const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth);
+    const [sidebarOpen, setSidebarOpenState] = useState(loadSidebarOpen);
+    const resizeSidebar = (width: number) => {
+        setSidebarWidth(width);
+        saveSetting(SIDEBAR_KEY, String(width));
+    };
+    const setSidebarOpen = (open: boolean) => {
+        setSidebarOpenState(open);
+        saveSetting(SIDEBAR_OPEN_KEY, open ? "1" : "0");
+    };
+    // Ctrl/Cmd+B toggles the sidebar on wide screens, like VS Code
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "b") return;
+            if (!window.matchMedia("(min-width: 768px)").matches) return;
+            e.preventDefault();
+            setSidebarOpenState((open) => {
+                saveSetting(SIDEBAR_OPEN_KEY, open ? "0" : "1");
+                return !open;
+            });
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, []);
     const [active, setActive] = useState<NavTab>("files");
     const [tabs, setTabs] = useState<EditorTab[]>(MOCK_TABS);
     const [activeId, setActiveId] = useState<string | null>("route");
     const activeTab = tabs.find((t) => t.id === activeId);
     const openGraph = () => {
-        setTabs((current) =>
-            current.some((tab) => tab.id === "git-graph")
-                ? current
-                : [...current, { id: "git-graph", name: "Git Graph", kind: "graph" }],
-        );
-        setActiveId("git-graph");
+        // start the slide first, then mount the (heavy) graph in a transition so the
+        // first render doesn't block the main thread and make the scroll jump
         snapTo("editor");
+        requestAnimationFrame(() =>
+            startTransition(() => {
+                setTabs((current) =>
+                    current.some((tab) => tab.id === "git-graph")
+                        ? current
+                        : [...current, { id: "git-graph", name: "Git Graph", kind: "graph" }],
+                );
+                setActiveId("git-graph");
+            }),
+        );
     };
 
     return (
@@ -95,12 +158,16 @@ function RouteComponent() {
             aria-label="Workspace"
             ref={containerRef}
             onScroll={onScroll}
-            className="flex h-dvh overflow-x-auto overscroll-x-contain bg-background text-foreground scrollbar-none"
+            style={{ "--sidebar-w": `${sidebarWidth}px` } as React.CSSProperties}
+            className="flex h-dvh overflow-x-auto overscroll-x-contain bg-background text-foreground scrollbar-none snap-x snap-mandatory md:snap-none md:overflow-x-hidden"
         >
             <div
                 aria-label="Primary sidebar"
                 data-snap-panel="sidebar"
-                className="flex flex-col w-[100%] max-w-lg shrink-0 bg-sidebar text-sidebar-foreground"
+                className={cn(
+                    "flex flex-col w-full min-w-sm shrink-0 snap-center snap-always bg-sidebar text-sidebar-foreground md:w-(--sidebar-w) md:min-w-0",
+                    !sidebarOpen && "md:hidden",
+                )}
             >
                 <header className="flex h-10 items-center justify-between gap-2 border-b border-sidebar-border px-2 text-xs">
                     <div className="flex h-10 items-center justify-between gap-1 text-xs">
@@ -129,12 +196,17 @@ function RouteComponent() {
                         </Button>
                         <Button
                             type="button"
-                            aria-label="Show editor"
+                            aria-label="Collapse sidebar"
+                            title="Collapse sidebar (Ctrl+B)"
                             variant="ghost"
                             size="icon"
-                            onClick={() => snapTo("editor")}
+                            onClick={() => {
+                                // wide: hide the panel; phone: slide over to the editor
+                                if (window.matchMedia("(min-width: 768px)").matches) setSidebarOpen(false);
+                                else snapTo("editor");
+                            }}
                         >
-                            <PanelRight className="size-4" />
+                            <PanelLeftClose className="size-4" />
                         </Button>
                     </div>
                 </header>
@@ -192,16 +264,35 @@ function RouteComponent() {
                     })}
                 </nav>
             </div>
-            <section aria-label="Editor" data-snap-panel="editor" className="flex min-h-0 w-full shrink-0 flex-col">
+            {sidebarOpen && (
+                <PanelResizer
+                    width={sidebarWidth}
+                    min={SIDEBAR_MIN}
+                    max={SIDEBAR_MAX}
+                    onChange={resizeSidebar}
+                    onReset={() => resizeSidebar(SIDEBAR_DEFAULT)}
+                    onCollapse={() => setSidebarOpen(false)}
+                />
+            )}
+            <section
+                aria-label="Editor"
+                data-snap-panel="editor"
+                className="flex min-h-0 w-full shrink-0 snap-center snap-always flex-col md:w-auto md:min-w-0 md:flex-1 md:shrink"
+            >
                 <div className="flex items-center h-10 shrink-0 border-b border-border bg-sidebar font-mono text-xs">
                     <Button
                         type="button"
                         aria-label="Show sidebar"
+                        title="Show sidebar (Ctrl+B)"
                         variant="ghost"
                         size="icon"
-                        onClick={() => snapTo("sidebar")}
+                        className={cn(sidebarOpen && "md:hidden")}
+                        onClick={() => {
+                            setSidebarOpen(true);
+                            snapTo("sidebar");
+                        }}
                     >
-                        <PanelLeft className="size-4" />
+                        <PanelLeftOpen className="size-4" />
                     </Button>
                     <TabStrip tabs={tabs} setTabs={setTabs} activeId={activeId} setActiveId={setActiveId} />
                 </div>

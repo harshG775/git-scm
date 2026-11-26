@@ -12,7 +12,6 @@ type PanelSnapContextValue = {
 
 const PanelSnapContext = createContext<PanelSnapContextValue | null>(null);
 const PANEL_IDS: SnapPanel[] = ["sidebar", "editor"];
-
 function centeredScrollLeft(container: HTMLElement, panel: HTMLElement) {
     const containerRect = container.getBoundingClientRect();
     const panelRect = panel.getBoundingClientRect();
@@ -59,14 +58,11 @@ export function PanelSnapProvider({ children }: { children: React.ReactNode }) {
                 if (!nearest || distance < nearest.distance) nearest = { id, element, distance };
             }
 
-            if (!nearest) return;
-            updateActivePanel(nearest.id);
-            const targetLeft = centeredScrollLeft(container, nearest.element);
-            if (Math.abs(container.scrollLeft - targetLeft) > 1) {
-                snapTo(nearest.id);
-            }
+            // snapping itself is native CSS scroll-snap (it waits for the finger to lift);
+            // this only tracks which panel is active
+            if (nearest) updateActivePanel(nearest.id);
         }, 120);
-    }, [snapTo, updateActivePanel]);
+    }, [updateActivePanel]);
 
     const togglePanel = useCallback(
         () => snapTo(activePanelRef.current === "sidebar" ? "editor" : "sidebar"),
