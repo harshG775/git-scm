@@ -252,6 +252,23 @@ func TestBranchesOverHTTP(t *testing.T) {
 	}
 }
 
+func TestTagsOverHTTP(t *testing.T) {
+	e := gitEnv(t)
+	e.sh("tag", "v1.0.0")
+
+	status, body := e.get("/git/tags")
+	var tags git.TagList
+	if status != 200 {
+		t.Fatalf("tags = %d %s", status, body)
+	}
+	if err := json.Unmarshal([]byte(body), &tags); err != nil {
+		t.Fatal(err)
+	}
+	if !tags.IsRepo || len(tags.Tags) != 1 || tags.Tags[0].Name != "v1.0.0" {
+		t.Fatalf("tags = %+v", tags)
+	}
+}
+
 func TestBranchesOutsideRepo(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not installed")

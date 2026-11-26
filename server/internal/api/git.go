@@ -30,6 +30,7 @@ func (a *API) registerGit(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/p/{id}/git/discard", a.gitPaths((git.Repo).Discard))
 	mux.HandleFunc("GET /api/p/{id}/git/log", a.gitLog)
 	mux.HandleFunc("GET /api/p/{id}/git/branches", a.gitBranches)
+	mux.HandleFunc("GET /api/p/{id}/git/tags", a.gitTags)
 	mux.HandleFunc("POST /api/p/{id}/git/branches", a.gitNamed((git.Repo).CreateBranch))
 	mux.HandleFunc("POST /api/p/{id}/git/checkout", a.gitNamed((git.Repo).SwitchBranch))
 	mux.HandleFunc("GET /api/p/{id}/git/remotes", a.gitRemotes)
@@ -141,6 +142,22 @@ func (a *API) gitBranches(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
 	defer cancel()
 	list, err := repo.Branches(ctx)
+	if err != nil {
+		failGit(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, list)
+}
+
+func (a *API) gitTags(w http.ResponseWriter, r *http.Request) {
+	_, repo, ok := a.repo(w, r)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
+	defer cancel()
+	list, err := repo.Tags(ctx)
 	if err != nil {
 		failGit(w, err)
 		return
