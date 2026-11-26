@@ -92,6 +92,7 @@ function RouteComponent() {
 
     return (
         <div
+            aria-label="Workspace"
             ref={containerRef}
             onScroll={onScroll}
             className="flex h-dvh overflow-x-auto overscroll-x-contain bg-background text-foreground scrollbar-none"
