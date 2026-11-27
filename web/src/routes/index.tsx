@@ -28,7 +28,7 @@ function Welcome() {
         mutationFn: api.openProject,
         onSuccess: (p) => {
             void queryClient.invalidateQueries({ queryKey: ["projects"] });
-            return navigate({ to: "/p/$projectId", params: { projectId: p.id } });
+            return navigate({ to: "/projects/$project_id", params: { project_id: p.id } });
         },
     });
     const remove = useMutation({
@@ -77,7 +77,7 @@ function Welcome() {
                             <button
                                 type="button"
                                 className="flex min-h-12 min-w-0 flex-1 items-center gap-3 px-3 text-left"
-                                onClick={() => navigate({ to: "/p/$projectId", params: { projectId: p.id } })}
+                                onClick={() => navigate({ to: "/projects/$project_id", params: { project_id: p.id } })}
                             >
                                 <FolderGit2 className="size-5 shrink-0 text-muted-foreground" />
                                 <span className="min-w-0">
