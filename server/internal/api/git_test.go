@@ -149,6 +149,16 @@ func TestGitValidation(t *testing.T) {
 	}
 }
 
+func TestPullOperationOverHTTP(t *testing.T) {
+	e := gitEnv(t)
+	if code, body := e.post("/git/pull", `{"operation":"fetch-all"}`); code != 200 {
+		t.Fatalf("fetch all = %d %s", code, body)
+	}
+	if code, body := e.post("/git/pull", `{"operation":"unsupported"}`); code != 400 {
+		t.Errorf("unsupported operation = %d %s", code, body)
+	}
+}
+
 func TestGitStatusOutsideRepo(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not installed")

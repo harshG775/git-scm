@@ -50,7 +50,7 @@ func (a *API) registerGit(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/p/{id}/git/commit", a.gitCommit)
 	mux.HandleFunc("POST /api/p/{id}/git/undo-commit", a.gitUndoCommit)
 	mux.HandleFunc("GET /api/p/{id}/git/numstat", a.gitNumstat)
-	mux.HandleFunc("POST /api/p/{id}/git/pull", a.gitNet((git.Repo).Pull))
+	mux.HandleFunc("POST /api/p/{id}/git/pull", a.gitPull)
 	mux.HandleFunc("POST /api/p/{id}/git/push", a.gitNet((git.Repo).Push))
 }
 
@@ -120,14 +120,14 @@ func (a *API) gitDiff(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, diff)
 }
 
-// gitLog returns commit history with topology for the graph: ?scope=local|all &limit=100.
+// gitLog returns commit history with topology for the graph: ?scope=current|local|all &limit=100.
 func (a *API) gitLog(w http.ResponseWriter, r *http.Request) {
 	_, repo, ok := a.repo(w, r)
 	if !ok {
 		return
 	}
 	scope := r.URL.Query().Get("scope")
-	if scope != git.ScopeAll {
+	if scope != git.ScopeAll && scope != git.ScopeCurrent {
 		scope = git.ScopeLocal
 	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
@@ -140,6 +140,37 @@ func (a *API) gitLog(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, log)
+}
+
+func (a *API) gitPull(w http.ResponseWriter, r *http.Request) {
+	proj, repo, ok := a.repo(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Operation git.PullMode `json:"operation"`
+	}
+	err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body)
+	if err != nil && err != io.EOF {
+		fail(w, http.StatusBadRequest, "body must contain a supported pull/fetch operation")
+		return
+	}
+	if body.Operation == "" {
+		body.Operation = git.PullFastForwardOnly
+	}
+	if !body.Operation.Valid() {
+		fail(w, http.StatusBadRequest, "unsupported pull/fetch operation")
+		return
+	}
+	defer a.lock(proj.ID)()
+	ctx, cancel := context.WithTimeout(r.Context(), gitNetTimeout)
+	defer cancel()
+	out, err := repo.PullWithMode(ctx, body.Operation)
+	if err != nil {
+		failGit(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"output": out})
 }
 
 func (a *API) gitBranches(w http.ResponseWriter, r *http.Request) {

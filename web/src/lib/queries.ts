@@ -61,7 +61,7 @@ export const gitStashesOptions = (projectId: string) =>
         queryFn: () => api.gitStashes(projectId),
     });
 
-export const gitLogOptions = (projectId: string, scope: "local" | "all", limit: number) =>
+export const gitLogOptions = (projectId: string, scope: "current" | "local" | "all", limit: number) =>
     queryOptions({
         queryKey: ["git", projectId, "log", scope, limit],
         queryFn: () => api.gitLog(projectId, scope, limit),

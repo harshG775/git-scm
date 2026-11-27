@@ -189,6 +189,8 @@ export interface GitLog {
     stashes: GitStash[];
 }
 
+export type PullMode = "fetch-all" | "pull-ff" | "pull-ff-only" | "pull-rebase";
+
 export class ApiError extends Error {
     constructor(
         public status: number,
@@ -301,7 +303,7 @@ export const api = {
     /** Creates a local branch tracking `ref` ("origin/feature") and switches to it. */
     gitCheckoutRemote: (id: string, ref: string) => gitPost(id, "checkout-remote", { name: ref }),
 
-    gitLog: async (id: string, scope: "local" | "all", limit: number): Promise<GitLog> =>
+    gitLog: async (id: string, scope: "current" | "local" | "all", limit: number): Promise<GitLog> =>
         (await request(`${project(id)}/git/log?scope=${scope}&limit=${limit}`)).json(),
 
     gitStashes: async (id: string): Promise<GitStashes> => (await request(`${project(id)}/git/stashes`)).json(),
@@ -320,7 +322,8 @@ export const api = {
         (await gitPost(id, "commit", { message, amend })).json(),
     /** Moves the branch back one commit, keeping its changes staged. Returns the old message. */
     gitUndoCommit: async (id: string): Promise<{ message: string }> => (await gitPost(id, "undo-commit")).json(),
-    gitPull: async (id: string): Promise<{ output: string }> => (await gitPost(id, "pull")).json(),
+    gitPull: async (id: string, operation: PullMode = "pull-ff-only"): Promise<{ output: string }> =>
+        (await gitPost(id, "pull", { operation })).json(),
     gitPush: async (id: string): Promise<{ output: string }> => (await gitPost(id, "push")).json(),
 
     /** Tells the server which dirs and files this client's event stream should report on. */

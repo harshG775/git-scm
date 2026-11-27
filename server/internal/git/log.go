@@ -41,9 +41,10 @@ type Log struct {
 }
 
 const (
-	ScopeLocal = "local" // local branches and HEAD
-	ScopeAll   = "all"   // plus remote branches and tags
-	maxBody    = 4000
+	ScopeCurrent = "current" // current branch and its reachable history
+	ScopeLocal   = "local"   // local branches and HEAD
+	ScopeAll     = "all"     // plus remote branches and tags
+	maxBody      = 4000
 )
 
 // Log returns commits newest first (by date, never before a child), with the topology the graph
@@ -82,7 +83,10 @@ func (r Repo) Log(ctx context.Context, scope string, limit int) (Log, error) {
 	out.Head = st.Oid
 
 	args := []string{"log", "--date-order", "--max-count=" + strconv.Itoa(limit+1),
-		"--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%b%x1e", "--branches"}
+		"--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%b%x1e"}
+	if scope != ScopeCurrent {
+		args = append(args, "--branches")
+	}
 	if scope == ScopeAll {
 		args = append(args, "--remotes", "--tags")
 	}

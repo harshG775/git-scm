@@ -141,6 +141,34 @@ func TestLogScopeAndDecorations(t *testing.T) {
 	}
 }
 
+func TestLogCurrentBranchScope(t *testing.T) {
+	r, dir := newRepo(t)
+	commit(t, dir, "base.txt", "base")
+	sh(t, dir, "switch", "-qc", "feature")
+	commit(t, dir, "feature.txt", "feature only")
+	sh(t, dir, "switch", "-q", "main")
+	commit(t, dir, "main.txt", "main only")
+
+	current, err := r.Log(ctx, ScopeCurrent, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(oids(current.Commits), ","); got != "main only,base" {
+		t.Errorf("current branch scope = %s", got)
+	}
+	local, err := r.Log(ctx, ScopeLocal, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	subjects := map[string]bool{}
+	for _, subject := range oids(local.Commits) {
+		subjects[subject] = true
+	}
+	if len(subjects) != 3 || !subjects["main only"] || !subjects["feature only"] || !subjects["base"] {
+		t.Errorf("local scope = %v", oids(local.Commits))
+	}
+}
+
 func TestLogLimitAndHasMore(t *testing.T) {
 	r, dir := newRepo(t)
 	for _, m := range []string{"c1", "c2", "c3", "c4", "c5"} {

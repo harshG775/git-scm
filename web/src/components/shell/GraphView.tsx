@@ -34,7 +34,7 @@ const fullDate = (t: number) =>
 export function GraphView({ projectId }: { projectId: string }) {
     const queryClient = useQueryClient();
     const desktop = useIsDesktop();
-    const [scope, setScope] = useState<"local" | "all">("local");
+    const [scope, setScope] = useState<"current" | "local" | "all">("current");
     const [limit, setLimit] = useState(PAGE);
     const [selected, setSelected] = useState<string | null>(null);
     const { data: log, error, isPending, isPlaceholderData } = useQuery(gitLogOptions(projectId, scope, limit));
@@ -49,13 +49,17 @@ export function GraphView({ projectId }: { projectId: string }) {
                     aria-label="Branches shown"
                     className="ml-2 flex overflow-hidden rounded-md border text-xs"
                 >
-                    {(["local", "all"] as const).map((s) => (
+                    {(["current", "local", "all"] as const).map((s) => (
                         <button
                             key={s}
                             type="button"
                             aria-pressed={scope === s}
                             title={
-                                s === "local" ? "Local branches and HEAD" : "Everything: remote branches and tags too"
+                                s === "current"
+                                    ? "Current branch history"
+                                    : s === "local"
+                                      ? "Local branches and HEAD"
+                                      : "Everything: remote branches and tags too"
                             }
                             className={cn(
                                 "h-8 px-3 md:h-6",
@@ -66,7 +70,7 @@ export function GraphView({ projectId }: { projectId: string }) {
                                 setLimit(PAGE);
                             }}
                         >
-                            {s === "local" ? "Local" : "All"}
+                            {s === "current" ? "Current" : s === "local" ? "Local" : "All"}
                         </button>
                     ))}
                 </div>

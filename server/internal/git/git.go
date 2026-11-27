@@ -253,10 +253,45 @@ func (r Repo) Diff(ctx context.Context, path string, staged bool) (diff string, 
 	return string(res.out), res.truncated, nil
 }
 
-// Pull fast-forwards only: on a phone there is no editor for merge commits, so diverged
-// branches fail with git's message instead of starting a merge.
+type PullMode string
+
+const (
+	PullFetchAll        PullMode = "fetch-all"
+	PullFastForward     PullMode = "pull-ff"
+	PullFastForwardOnly PullMode = "pull-ff-only"
+	PullRebase          PullMode = "pull-rebase"
+)
+
+func (m PullMode) Valid() bool {
+	switch m {
+	case PullFetchAll, PullFastForward, PullFastForwardOnly, PullRebase:
+		return true
+	default:
+		return false
+	}
+}
+
+// Pull retains the existing fast-forward-only behavior for callers without a selected mode.
 func (r Repo) Pull(ctx context.Context) (string, error) {
-	res, err := r.run(ctx, opts{combined: true}, "pull", "--ff-only")
+	return r.PullWithMode(ctx, PullFastForwardOnly)
+}
+
+func (r Repo) PullWithMode(ctx context.Context, mode PullMode) (string, error) {
+	if mode == PullFetchAll {
+		return r.Fetch(ctx)
+	}
+	var args []string
+	switch mode {
+	case PullFastForward:
+		args = []string{"pull", "--ff"}
+	case PullFastForwardOnly:
+		args = []string{"pull", "--ff-only"}
+	case PullRebase:
+		args = []string{"pull", "--rebase"}
+	default:
+		return "", &Error{Msg: "unsupported pull/fetch operation"}
+	}
+	res, err := r.run(ctx, opts{combined: true}, args...)
 	return strings.TrimSpace(string(res.out)), err
 }
 

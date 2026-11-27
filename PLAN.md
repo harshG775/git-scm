@@ -25,7 +25,7 @@ UX modeled on VS Code (Welcome tab, Explorer, file tabs, built-in SCM view).
 | GET | `/api/p/{id}/git/status` | branch, ahead/behind, staged, changes, untracked |
 | GET | `/api/p/{id}/git/diff?path=&staged=` | |
 | POST | `/api/p/{id}/git/{stage,unstage,discard}` | `{paths}`; 204 |
-| GET | `/api/p/{id}/git/log?scope=local\|all&limit=` | commits newest first, each before its parents, with `parents[]`, `refs[]`; plus `uncommitted`, `stashes[]` (with `base`), `hasMore` |
+| GET | `/api/p/{id}/git/log?scope=current\|local\|all&limit=` | commits newest first, each before its parents, with `parents[]`, `refs[]`; `current` follows HEAD, `local` includes all local branches, `all` also includes remote branches and tags; plus `uncommitted`, `stashes[]` (with `base`), `hasMore` |
 | GET | `/api/p/{id}/git/branches` | `{isRepo, head, detached, branches[]}`; current first, then most recent |
 | POST | `/api/p/{id}/git/branches` | `{name, from?}`; creates at HEAD (or at `from`: branch, remote branch, tag, commit) and switches; 204 |
 | POST | `/api/p/{id}/git/checkout` | `{name}`; existing local branch only; 422 with git's message if refused |
@@ -44,7 +44,8 @@ UX modeled on VS Code (Welcome tab, Explorer, file tabs, built-in SCM view).
 | POST | `/api/p/{id}/git/remote-branches/delete` | `{name: "origin/x"}`; returns `{output}` |
 | POST | `/api/p/{id}/git/tags/delete`, `/git/tags/push` | `{name}`; push returns `{output}` |
 | POST | `/api/p/{id}/git/merge` | `{name}`; a merge that conflicts is aborted and returns 422 listing the files |
-| POST | `/api/p/{id}/git/{pull,push}` | returns `{output}`; pull is fast-forward only |
+| POST | `/api/p/{id}/git/pull` | optional `{operation}`: `fetch-all`, `pull-ff`, `pull-ff-only` (default), or `pull-rebase`; returns `{output}` |
+| POST | `/api/p/{id}/git/push` | returns `{output}` |
 | PUT | `/api/p/{id}/watch?client=` | `{dirs, files}` the client has expanded or open; 404 until its stream is open |
 | GET | `/api/p/{id}/events?client=` | SSE: `ready`, `git`, `file {path}`, `dir {path}`; `client` is a random id the page picks |
 | GET, PUT | `/api/p/{id}/git/config` | repository git config overrides: GET returns `{path, values}`, PUT `{key, value}`; an empty value removes the override |

@@ -1,53 +1,28 @@
 import { useQuery } from "@tanstack/react-query";
-import { CloudUpload, RefreshCw } from "lucide-react";
+import { GitBranch } from "lucide-react";
 import { Button } from "#/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
-import { api } from "#/lib/api";
 import { gitStatusOptions } from "#/lib/queries";
-import { useGitAction } from "#/lib/use-git-action";
-import { cn } from "#/lib/utils";
 
-/** Sync like VS Code: pull (fast-forward only), then push. A branch with no upstream is published instead. */
-export function useSync(projectId: string) {
+/** Header status only; pull/fetch actions live in the Changes tab. */
+export function useSyncStatus(projectId: string) {
     const { data: status } = useQuery(gitStatusOptions(projectId));
-    const { run, busy } = useGitAction(projectId, { errorTitle: "Sync failed" });
-
-    const published = !!status?.upstream;
-    const ahead = status?.ahead ?? 0;
-    const behind = status?.behind ?? 0;
-
-    const sync = () =>
-        run(async () => {
-            // a failed pull (diverged, conflicts) throws, so we never push on top of it
-            if (!published) {
-                await api.gitPush(projectId);
-                return "Branch published.";
-            }
-            await api.gitPull(projectId);
-            if (ahead > 0) await api.gitPush(projectId);
-            return ahead > 0 ? "Synced: pulled and pushed." : "Synced: pulled the latest changes.";
-        });
-
     return {
-        available: !!status?.isRepo && !status.detached,
-        published,
-        ahead,
-        behind,
+        available: !!status?.isRepo,
         upstream: status?.upstream ?? "",
-        busy,
-        sync,
+        ahead: status?.ahead ?? 0,
+        behind: status?.behind ?? 0,
     };
 }
 
-export type Sync = ReturnType<typeof useSync>;
+export type SyncStatus = ReturnType<typeof useSyncStatus>;
 
-export function SyncButton({ sync }: { sync: Sync }) {
-    if (!sync.available) return null;
+export function SyncStatusButton({ status, onClick }: { status: SyncStatus; onClick: () => void }) {
+    if (!status.available) return null;
 
-    const label = sync.published
-        ? `Sync changes: pull ${sync.behind}, push ${sync.ahead} (${sync.upstream})`
-        : "Publish branch";
-    const Icon = sync.published ? RefreshCw : CloudUpload;
+    const label = status.upstream
+        ? `Changes: ${status.behind} behind, ${status.ahead} ahead (${status.upstream})`
+        : "Changes: no upstream configured";
 
     return (
         <Tooltip>
@@ -57,18 +32,19 @@ export function SyncButton({ sync }: { sync: Sync }) {
                         type="button"
                         variant="ghost"
                         aria-label={label}
-                        disabled={sync.busy}
-                        onClick={sync.sync}
+                        onClick={onClick}
                         className="h-10 w-auto gap-1 px-2 font-mono text-xs md:h-8"
                     />
                 }
             >
-                <Icon aria-hidden="true" className={cn("size-4", sync.busy && "animate-spin")} />
-                {sync.published && (sync.behind > 0 || sync.ahead > 0) && (
+                <GitBranch aria-hidden="true" className="size-4" />
+                {status.upstream ? (
                     <span className="flex gap-1">
-                        {sync.behind > 0 && <span>↓{sync.behind}</span>}
-                        {sync.ahead > 0 && <span>↑{sync.ahead}</span>}
+                        <span>↓{status.behind}</span>
+                        <span>↑{status.ahead}</span>
                     </span>
+                ) : (
+                    <span className="font-sans">No upstream</span>
                 )}
             </TooltipTrigger>
             <TooltipContent>{label}</TooltipContent>

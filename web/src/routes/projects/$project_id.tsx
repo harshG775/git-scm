@@ -26,7 +26,7 @@ import { ChangesTab } from "./-component/tabs/ChangesTab";
 import { FilesTab } from "./-component/tabs/FilesTab";
 import { FileViewer } from "./-component/FileViewer";
 import { RepoMenu } from "./-component/RepoMenu";
-import { SyncButton, useSync } from "./-component/sync";
+import { SyncStatusButton, useSyncStatus } from "./-component/sync";
 import { TabStrip, type EditorTab } from "./-component/TabStrip";
 
 export const Route = createFileRoute("/projects/$project_id")({
@@ -159,7 +159,7 @@ function Workspace({ project_id }: { project_id: string }) {
     const enterProject = useWorkspace((s) => s.enterProject);
     useEffect(() => enterProject(project_id), [enterProject, project_id]);
     const live = useLiveUpdates(project_id);
-    const sync = useSync(project_id);
+    const syncStatus = useSyncStatus(project_id);
     // files with changes, for the badge on the Changes tab; a file both staged and edited counts once
     const { data: gitStatus } = useQuery(gitStatusOptions(project_id));
     const changedFiles = new Set(
@@ -266,7 +266,7 @@ function Workspace({ project_id }: { project_id: string }) {
                     <RepoCrumb projectId={project_id} onOpenBranches={() => setActive("branches")} />
                     <div className="ml-auto flex items-center">
                         <LiveDot live={live} />
-                        <SyncButton sync={sync} />
+                        <SyncStatusButton status={syncStatus} onClick={() => setActive("changes")} />
                         <NotificationCenter />
                         <Button
                             type="button"
@@ -295,7 +295,12 @@ function Workspace({ project_id }: { project_id: string }) {
                             <FilesTab projectId={project_id} activePath={activeTab?.path} onOpenFile={openFile} />
                         </Activity>
                         <Activity mode={mode("changes")}>
-                            <ChangesTab projectId={project_id} activePath={activeTab?.path} onOpenFile={openFile} />
+                            <ChangesTab
+                                projectId={project_id}
+                                activePath={activeTab?.path}
+                                onOpenFile={openFile}
+                                onOpenGraph={openGraph}
+                            />
                         </Activity>
                         <Activity mode={mode("branches")}>
                             <BranchesTab projectId={project_id} onOpenGraph={openGraph} />

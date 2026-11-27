@@ -385,6 +385,41 @@ func TestPullAndPush(t *testing.T) {
 	}
 }
 
+func TestPullModes(t *testing.T) {
+	r, dir := newRepo(t)
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	sh(t, t.TempDir(), "init", "-q", "--bare", "--initial-branch=main", remote)
+	sh(t, dir, "remote", "add", "origin", remote)
+	write(t, dir, "a.txt", "first\n")
+	commitAll(t, dir, "first")
+	if _, err := r.Push(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	other := filepath.Join(t.TempDir(), "other")
+	sh(t, t.TempDir(), "clone", "-q", remote, other)
+	write(t, other, "b.txt", "remote\n")
+	sh(t, other, "add", "-A")
+	sh(t, other, "commit", "-qm", "remote")
+	sh(t, other, "push", "-q")
+
+	if _, err := r.PullWithMode(ctx, PullFetchAll); err != nil {
+		t.Fatalf("fetch all: %v", err)
+	}
+	if st, err := r.Status(ctx); err != nil || st.Behind != 1 {
+		t.Fatalf("fetch all status = %+v, %v", st, err)
+	}
+	if _, err := r.PullWithMode(ctx, PullFastForward); err != nil {
+		t.Fatalf("pull fast-forward: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "b.txt")); err != nil {
+		t.Errorf("pull fast-forward did not bring remote file: %v", err)
+	}
+	if _, err := r.PullWithMode(ctx, PullMode("invalid")); err == nil {
+		t.Error("invalid pull mode should fail")
+	}
+}
+
 func TestOperationsTimeOut(t *testing.T) {
 	r, dir := newRepo(t)
 	write(t, dir, "a.txt", "x")
