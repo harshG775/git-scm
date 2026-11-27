@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/git-csm/server/internal/execpath"
 	"github.com/git-csm/server/internal/pathguard"
 )
 
@@ -353,7 +354,11 @@ func gitSig(ctx context.Context, root string) string {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	// --no-optional-locks: never take index.lock, so we cannot block the user's own git commands.
-	status, err := exec.CommandContext(ctx, "git", "--no-optional-locks", "-C", root, "status", "--porcelain=v2", "-z", "--branch", "--show-stash").Output()
+	git, err := execpath.Look("git")
+	if err != nil {
+		return "norepo"
+	}
+	status, err := exec.CommandContext(ctx, git, "--no-optional-locks", "-C", root, "status", "--porcelain=v2", "-z", "--branch", "--show-stash").Output()
 	if ctx.Err() != nil {
 		return ""
 	}
@@ -361,7 +366,7 @@ func gitSig(ctx context.Context, root string) string {
 		return "norepo"
 	}
 	// A failure here (for example no refs yet) just contributes nothing.
-	refs, _ := exec.CommandContext(ctx, "git", "--no-optional-locks", "-C", root, "for-each-ref", "--format=%(refname) %(objectname)", "refs/heads", "refs/remotes").Output()
+	refs, _ := exec.CommandContext(ctx, git, "--no-optional-locks", "-C", root, "for-each-ref", "--format=%(refname) %(objectname)", "refs/heads", "refs/remotes").Output()
 	if ctx.Err() != nil {
 		return ""
 	}

@@ -15,6 +15,7 @@ import (
 
 	"github.com/git-csm/server/internal/api"
 	"github.com/git-csm/server/internal/config"
+	"github.com/git-csm/server/internal/execpath"
 	"github.com/git-csm/server/internal/guard"
 	"github.com/git-csm/server/internal/ui"
 	"github.com/git-csm/server/internal/watch"
@@ -24,7 +25,11 @@ const installURL = "https://raw.githubusercontent.com/harshG775/git-scm/main/ins
 
 // update re-runs the install script, which replaces this binary with the latest release.
 func update() {
-	cmd := exec.Command("sh", "-c", "curl -fsSL "+installURL+" | sh")
+	sh, err := execpath.Look("sh")
+	if err != nil {
+		log.Fatal(err)
+	}
+	cmd := exec.Command(sh, "-c", "curl -fsSL "+installURL+" | sh")
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
 		log.Fatalf("update failed: %v", err)

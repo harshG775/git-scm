@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/git-csm/server/internal/execpath"
 	"os"
 	"os/exec"
 	"strings"
@@ -47,7 +48,11 @@ func (r Repo) run(ctx context.Context, o opts, args ...string) (result, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", r.Root}, args...)...)
+	bin, err := execpath.Look("git")
+	if err != nil {
+		return result{}, err
+	}
+	cmd := exec.CommandContext(ctx, bin, append([]string{"-C", r.Root}, args...)...)
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "LC_ALL=C")
 	if !o.magic {
 		cmd.Env = append(cmd.Env, "GIT_LITERAL_PATHSPECS=1")
@@ -70,7 +75,7 @@ func (r Repo) run(ctx context.Context, o opts, args ...string) (result, error) {
 		cmd.Stderr = errb
 	}
 
-	err := cmd.Run()
+	err = cmd.Run()
 	res := result{out: out.buf.Bytes(), truncated: out.truncated}
 	if err == nil || out.truncated {
 		return res, nil
