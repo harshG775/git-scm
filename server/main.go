@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -19,7 +20,22 @@ import (
 	"github.com/git-csm/server/internal/watch"
 )
 
+const installURL = "https://raw.githubusercontent.com/harshG775/git-scm/main/install.sh"
+
+// update re-runs the install script, which replaces this binary with the latest release.
+func update() {
+	cmd := exec.Command("sh", "-c", "curl -fsSL "+installURL+" | sh")
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	if err := cmd.Run(); err != nil {
+		log.Fatalf("update failed: %v", err)
+	}
+}
+
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "update" {
+		update()
+		return
+	}
 	addr := flag.String("addr", "127.0.0.1:8080", "listen address")
 	cert := flag.String("cert", "", "TLS certificate file (enables HTTPS)")
 	key := flag.String("key", "", "TLS key file")
