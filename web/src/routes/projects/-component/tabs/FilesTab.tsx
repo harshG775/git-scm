@@ -3,6 +3,7 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronsDownUp, Search, X } from "lucide-react";
 import { Button } from "#/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "#/components/ui/empty";
 import { Input } from "#/components/ui/input";
 import { Skeleton } from "#/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
@@ -162,9 +163,14 @@ export function FilesTab({
                         </p>
                     ) : searching ? (
                         matches.length === 0 ? (
-                            <p role="status" className="px-3 py-2 text-xs text-muted-foreground">
-                                No files match “{query.trim()}” in the folders opened so far.
-                            </p>
+                            <Empty className="mx-3 my-2">
+                                <EmptyHeader>
+                                    <EmptyTitle>No matching files</EmptyTitle>
+                                    <EmptyDescription>
+                                        Nothing matches “{query.trim()}” in the folders opened so far.
+                                    </EmptyDescription>
+                                </EmptyHeader>
+                            </Empty>
                         ) : (
                             <>
                                 <FileTree<Entry>
@@ -185,7 +191,12 @@ export function FilesTab({
                             </>
                         )
                     ) : entries.length === 0 ? (
-                        <p className="px-3 py-2 text-xs text-muted-foreground">This folder is empty</p>
+                        <Empty className="mx-3 my-2">
+                            <EmptyHeader>
+                                <EmptyTitle>This folder is empty</EmptyTitle>
+                                <EmptyDescription>Files you add will show up here.</EmptyDescription>
+                            </EmptyHeader>
+                        </Empty>
                     ) : (
                         <FileTree<Entry>
                             label="Project files"

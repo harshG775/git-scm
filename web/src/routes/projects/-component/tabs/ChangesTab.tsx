@@ -20,6 +20,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "#/components/ui/empty";
 import { Input } from "#/components/ui/input";
 import { NativeDialog } from "#/components/ui/native-dialog";
 import { FileTree, type TreeEntry, type TreeNode } from "#/components/file-tree/file-tree";
@@ -257,11 +258,25 @@ export function ChangesTab() {
                         {files.length > 0 && <div className="ml-2 flex items-center gap-1">{headerActions}</div>}
                     </div>
                     <CollapsibleContent>
-                        {files.length === 0 && (
-                            <p className="px-3 py-2 text-sm text-muted-foreground">
-                                {title === "Staged Changes" ? "No staged changes" : "No changes"}
-                            </p>
-                        )}
+                        {files.length === 0 &&
+                            (title === "Staged Changes" ? (
+                                <Empty className="mx-3 my-2">
+                                    <EmptyHeader>
+                                        <EmptyDescription>
+                                            Nothing staged. Tap + on a change to stage it.
+                                        </EmptyDescription>
+                                    </EmptyHeader>
+                                </Empty>
+                            ) : (
+                                <Empty className="mx-3 my-2">
+                                    <EmptyHeader>
+                                        <EmptyTitle>Working tree clean</EmptyTitle>
+                                        <EmptyDescription>
+                                            Last commit: feat(files): open files in tabs
+                                        </EmptyDescription>
+                                    </EmptyHeader>
+                                </Empty>
+                            ))}
                         <FileTree<ChangeFile>
                             label={title}
                             view={changesView}
@@ -313,7 +328,14 @@ export function ChangesTab() {
                             </label>
                         </div>
                     </form>
-                    {stashes.length === 0 && <p className="py-2 text-sm text-muted-foreground">No stashes</p>}
+                    {stashes.length === 0 && (
+                        <Empty>
+                            <EmptyHeader>
+                                <EmptyTitle>No stashes</EmptyTitle>
+                                <EmptyDescription>Stash your changes to save them here.</EmptyDescription>
+                            </EmptyHeader>
+                        </Empty>
+                    )}
                     {stashes.map(({ message, branch, age }) => (
                         <div key={message} className="flex items-start gap-2 border-b py-2 last:border-b-0">
                             <Archive className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />

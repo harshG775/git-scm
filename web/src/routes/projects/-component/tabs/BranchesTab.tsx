@@ -28,6 +28,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "#/components/ui/empty";
 import { Input } from "#/components/ui/input";
 import { cn } from "#/lib/utils";
 import { TabHeader, TooltipIconButton } from "./TabHeader";
@@ -86,9 +87,10 @@ const REF_ACTIONS: Record<RefKind, RefAction[]> = {
     tag: [checkout, createFrom, { label: "Push tag", icon: ArrowUpFromLine }, copyName, remove("Delete tag")],
 };
 
-const GROUPS: { title: string; items: Ref[] }[] = [
+const GROUPS: { title: string; empty: { title: string; description: string }; items: Ref[] }[] = [
     {
         title: "Local",
+        empty: { title: "No local branches", description: "Create a branch from the current commit." },
         items: [
             { name: "main", kind: "current", subject: "feat(files): open files in tabs · 2h", ahead: 1, behind: 2 },
             {
@@ -102,6 +104,7 @@ const GROUPS: { title: string; items: Ref[] }[] = [
     },
     {
         title: "Remotes",
+        empty: { title: "No remotes configured", description: "Add a remote to push and pull." },
         items: [
             { name: "origin/main", kind: "remote", subject: "Merge pull request #41 · 3h", status: "tracked" },
             { name: "origin/release", kind: "remote", subject: "chore(release): 1.2.0 · 4d", status: "remote only" },
@@ -109,6 +112,7 @@ const GROUPS: { title: string; items: Ref[] }[] = [
     },
     {
         title: "Tags",
+        empty: { title: "No tags", description: "Tag a commit to mark a release." },
         items: [
             { name: "v1.1.0", kind: "tag", subject: "Release 1.1.0", hash: "c4e8a15" },
             { name: "v1.0.0", kind: "tag", subject: "Release 1.0.0", hash: "31fa6c4" },
@@ -194,7 +198,7 @@ export function BranchesTab({ onOpenGraph }: { onOpenGraph: () => void }) {
     const filteredGroups = GROUPS.map((group) => ({
         ...group,
         items: group.items.filter(({ name }) => name.toLocaleLowerCase().includes(search)),
-    })).filter(({ items }) => !search || items.length > 0);
+    }));
     const runAction = ({ label }: RefAction, name: string) =>
         setNotice(`${label} "${name}" is a UI preview. Nothing was changed.`);
 
@@ -226,7 +230,7 @@ export function BranchesTab({ onOpenGraph }: { onOpenGraph: () => void }) {
                     {notice}
                 </p>
             )}
-            {filteredGroups.map(({ title, items }) => (
+            {filteredGroups.map(({ title, items, empty }) => (
                 <Collapsible
                     key={title}
                     open={search ? true : openGroups[title]}
@@ -245,15 +249,24 @@ export function BranchesTab({ onOpenGraph }: { onOpenGraph: () => void }) {
                         <span className="ml-auto text-xs text-muted-foreground">{items.length}</span>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="px-3 py-2">
+                        {items.length === 0 && (
+                            <Empty>
+                                <EmptyHeader>
+                                    <EmptyTitle>
+                                        {search
+                                            ? `No ${title.toLocaleLowerCase()} match “${query.trim()}”`
+                                            : empty.title}
+                                    </EmptyTitle>
+                                    {!search && <EmptyDescription>{empty.description}</EmptyDescription>}
+                                </EmptyHeader>
+                            </Empty>
+                        )}
                         {items.map((item) => (
                             <RefRow key={item.name} item={item} onAction={runAction} />
                         ))}
                     </CollapsibleContent>
                 </Collapsible>
             ))}
-            {search && filteredGroups.length === 0 && (
-                <p className="px-3 py-2 text-sm text-muted-foreground">No matching branches, remotes, or tags.</p>
-            )}
         </>
     );
 }
