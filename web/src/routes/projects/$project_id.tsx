@@ -57,6 +57,7 @@ const SIDEBAR_MAX = 560;
 const SIDEBAR_DEFAULT = 320;
 const SIDEBAR_KEY = "workspace.sidebarWidth";
 const SIDEBAR_OPEN_KEY = "workspace.sidebarOpen";
+const GRAPH_TAB: EditorTab = { id: "git-graph", name: "Git Graph", kind: "graph", pinned: true };
 
 function loadSidebarWidth() {
     try {
@@ -195,21 +196,32 @@ function Workspace({ project_id }: { project_id: string }) {
     const [active, setActive] = useState<NavTab>("files");
     // tabs stay mounted so their state survives switching; the inactive ones are hidden
     const mode = (tab: NavTab) => (tab === active ? "visible" : "hidden");
-    const [tabs, setTabs] = useState<EditorTab[]>([]);
-    const [activeId, setActiveId] = useState<string | null>(null);
+    const [tabs, setTabs] = useState<EditorTab[]>([GRAPH_TAB]);
+    const [activeId, setActiveId] = useState<string | null>(GRAPH_TAB.id);
     const activeTab = tabs.find((t) => t.id === activeId);
+    useEffect(() => snapTo("editor"), [snapTo]);
     // open (or switch to) an editor tab. On a phone the editor is a separate panel, so slide to it first,
     // then mount the tab in a transition: a heavy first render (the graph, a big file) can't stall the slide.
     const openTab = (tab: EditorTab) => {
         snapTo("editor");
         requestAnimationFrame(() =>
             startTransition(() => {
-                setTabs((current) => (current.some((t) => t.id === tab.id) ? current : [...current, tab]));
+                setTabs((current) => {
+                    const next = current.some((existing) => existing.id === tab.id)
+                        ? current.map((existing) =>
+                              existing.id === tab.id ? { ...existing, ...tab, preview: false } : existing,
+                          )
+                        : [...current, tab];
+                    return [
+                        ...next.filter((existing) => existing.pinned),
+                        ...next.filter((existing) => !existing.pinned),
+                    ];
+                });
                 setActiveId(tab.id);
             }),
         );
     };
-    const openGraph = () => openTab({ id: "git-graph", name: "Git Graph", kind: "graph" });
+    const openGraph = () => openTab(GRAPH_TAB);
     // VS Code preview tabs: a tap opens an italic preview that the next tap replaces; a double-tap
     // (or opening an already-open preview again with `pin`) keeps it.
     const openFile = (path: string, pin = false) => {

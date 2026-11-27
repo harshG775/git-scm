@@ -134,8 +134,8 @@ export function Graph({
     const picked = items.find((i) => i.id === selected);
 
     return (
-        <>
-            <div className="min-h-0 flex-1 overflow-auto">
+        <div className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-[3] overflow-auto">
                 <div className="min-w-0 md:min-w-[40rem]">
                     <div
                         className={cn(
@@ -173,7 +173,7 @@ export function Graph({
                 </div>
             </div>
             {picked && <Details item={picked} log={log} />}
-        </>
+        </div>
     );
 }
 
@@ -381,7 +381,7 @@ function Details({ item, log }: { item: GraphItem; log: GitLog }) {
     const desktop = useIsDesktop();
 
     return (
-        <div className="max-h-[45%] shrink-0 overflow-auto border-t bg-sidebar p-3 text-sm">
+        <div className="min-h-0 flex-[2] overflow-auto border-t bg-sidebar p-3 text-sm">
             {item.kind === "uncommitted" && (
                 <>
                     <p className="font-medium">
