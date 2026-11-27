@@ -55,7 +55,7 @@
 
 :root {
     /* Pocket Git palette: cool grey-green neutrals with an orange accent.
-       --background is the page, --card/--popover/--sidebar are raised surfaces, --muted a quiet fill. */
+       --background and --sidebar are the page; --card/--popover are raised surfaces; --muted a quiet fill. */
     --background: oklch(0.955 0.005 165);
     --foreground: oklch(0.205 0.01 234.3);
     --card: oklch(1 0 0);
@@ -84,7 +84,7 @@
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
     --radius: 0.75rem;
-    --sidebar: oklch(1 0 0);
+    --sidebar: oklch(0.955 0.005 165);
     --sidebar-foreground: oklch(0.205 0.01 234.3);
     --sidebar-primary: oklch(0.601 0.186 37);
     --sidebar-primary-foreground: oklch(1 0 0);
@@ -121,7 +121,7 @@
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.217 0.011 229.5);
+    --sidebar: oklch(0.174 0.008 229.4);
     --sidebar-foreground: oklch(0.941 0.007 174.4);
     --sidebar-primary: oklch(0.727 0.173 39);
     --sidebar-primary-foreground: oklch(0.174 0.03 48.1);

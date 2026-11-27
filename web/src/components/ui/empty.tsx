@@ -6,7 +6,7 @@ function Empty({ className, ...props }: React.ComponentProps<"div">) {
         <div
             data-slot="empty"
             className={cn(
-                "flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl border bg-muted/50 p-5 text-center text-balance",
+                "flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl border bg-card p-5 text-center text-balance",
                 className,
             )}
             {...props}

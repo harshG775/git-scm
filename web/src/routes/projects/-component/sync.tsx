@@ -56,7 +56,7 @@ export function SyncButton({ sync }: { sync: Sync }) {
                         aria-label={label}
                         disabled={sync.busy}
                         onClick={sync.sync}
-                        className="h-9 w-auto gap-1 px-2 font-mono text-xs"
+                        className="h-10 w-auto gap-1 px-2 font-mono text-xs md:h-8"
                     />
                 }
             >

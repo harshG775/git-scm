@@ -1,10 +1,8 @@
 import { useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronsDownUp, Search, X } from "lucide-react";
+import { ChevronsDownUp } from "lucide-react";
 import { Button } from "#/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "#/components/ui/empty";
-import { Input } from "#/components/ui/input";
 import { Skeleton } from "#/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
 import { filterFiles } from "#/components/file-tree/build-tree";
@@ -14,6 +12,8 @@ import { StatusLetter } from "#/components/file-tree/status-letter";
 import type { Entry } from "#/lib/api";
 import { gitStatusOptions, treeOptions } from "#/lib/queries";
 import { useWorkspace } from "#/stores/workspace";
+import { SearchField } from "./SearchField";
+import { Section, SectionCard } from "./Section";
 import { TabHeader } from "./TabHeader";
 
 const MAX_RESULTS = 100;
@@ -94,37 +94,14 @@ export function FilesTab({
     return (
         <>
             <TabHeader title="Files" />
-            <div className="flex items-center gap-2 px-2 py-2">
-                <div className="relative min-w-0 flex-1">
-                    <label htmlFor="file-search" className="sr-only">
-                        Find a file
-                    </label>
-                    <Search
-                        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-                        aria-hidden="true"
-                    />
-                    <Input
-                        id="file-search"
-                        type="text"
-                        autoComplete="off"
-                        spellCheck={false}
-                        value={query}
-                        onChange={(event) => setQuery(event.target.value)}
-                        onKeyDown={(event) => event.key === "Escape" && setQuery("")}
-                        placeholder="Find a file"
-                        className="px-9"
-                    />
-                    {query && (
-                        <button
-                            type="button"
-                            aria-label="Clear search"
-                            onClick={() => setQuery("")}
-                            className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
-                        >
-                            <X aria-hidden="true" className="size-4" />
-                        </button>
-                    )}
-                </div>
+            <div className="flex items-center gap-2 px-3 pb-2">
+                <SearchField
+                    id="file-search"
+                    label="Find a file"
+                    value={query}
+                    onChange={setQuery}
+                    placeholder="Find a file"
+                />
                 <Tooltip>
                     <TooltipTrigger
                         render={
@@ -143,36 +120,31 @@ export function FilesTab({
                     <TooltipContent>Collapse all folders</TooltipContent>
                 </Tooltip>
             </div>
-            <Collapsible defaultOpen className="border-b border-sidebar-border">
-                <CollapsibleTrigger className=" group flex min-h-10 w-full items-center gap-1 px-2 text-left text-sm font-medium">
-                    <ChevronDown
-                        className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
-                        aria-hidden="true"
-                    />
-                    <span>Project files</span>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                    {root?.isPending ? (
+            <Section title="Project files">
+                {root?.isPending ? (
+                    <SectionCard>
                         <FilesSkeleton />
-                    ) : root?.error ? (
-                        <p role="alert" className="px-3 py-2 text-xs text-destructive">
-                            {root.error.message}{" "}
-                            <button type="button" className="underline" onClick={() => root.refetch()}>
-                                Retry
-                            </button>
-                        </p>
-                    ) : searching ? (
-                        matches.length === 0 ? (
-                            <Empty className="mx-3 my-2">
-                                <EmptyHeader>
-                                    <EmptyTitle>No matching files</EmptyTitle>
-                                    <EmptyDescription>
-                                        Nothing matches “{query.trim()}” in the folders opened so far.
-                                    </EmptyDescription>
-                                </EmptyHeader>
-                            </Empty>
-                        ) : (
-                            <>
+                    </SectionCard>
+                ) : root?.error ? (
+                    <p role="alert" className="text-xs text-destructive">
+                        {root.error.message}{" "}
+                        <button type="button" className="underline" onClick={() => root.refetch()}>
+                            Retry
+                        </button>
+                    </p>
+                ) : searching ? (
+                    matches.length === 0 ? (
+                        <Empty>
+                            <EmptyHeader>
+                                <EmptyTitle>No matching files</EmptyTitle>
+                                <EmptyDescription>
+                                    Nothing matches “{query.trim()}” in the folders opened so far.
+                                </EmptyDescription>
+                            </EmptyHeader>
+                        </Empty>
+                    ) : (
+                        <>
+                            <SectionCard>
                                 <FileTree<Entry>
                                     label="Search results"
                                     view="list"
@@ -182,22 +154,22 @@ export function FilesTab({
                                     onSelect={(entry) => onOpenFile(entry.path)}
                                     onOpen={(entry) => onOpenFile(entry.path, true)}
                                 />
-                                <p role="status" className="px-3 py-2 text-xs text-muted-foreground">
-                                    {matches.length > MAX_RESULTS
-                                        ? `Showing ${MAX_RESULTS} of ${matches.length}. `
-                                        : ""}
-                                    Searches the folders opened so far.
-                                </p>
-                            </>
-                        )
-                    ) : entries.length === 0 ? (
-                        <Empty className="mx-3 my-2">
-                            <EmptyHeader>
-                                <EmptyTitle>This folder is empty</EmptyTitle>
-                                <EmptyDescription>Files you add will show up here.</EmptyDescription>
-                            </EmptyHeader>
-                        </Empty>
-                    ) : (
+                            </SectionCard>
+                            <p role="status" className="pt-2 text-xs text-muted-foreground">
+                                {matches.length > MAX_RESULTS ? `Showing ${MAX_RESULTS} of ${matches.length}. ` : ""}
+                                Searches the folders opened so far.
+                            </p>
+                        </>
+                    )
+                ) : entries.length === 0 ? (
+                    <Empty>
+                        <EmptyHeader>
+                            <EmptyTitle>This folder is empty</EmptyTitle>
+                            <EmptyDescription>Files you add will show up here.</EmptyDescription>
+                        </EmptyHeader>
+                    </Empty>
+                ) : (
+                    <SectionCard>
                         <FileTree<Entry>
                             label="Project files"
                             entries={entries}
@@ -208,9 +180,9 @@ export function FilesTab({
                             onSelect={(entry) => onOpenFile(entry.path)}
                             onOpen={(entry) => onOpenFile(entry.path, true)}
                         />
-                    )}
-                </CollapsibleContent>
-            </Collapsible>
+                    </SectionCard>
+                )}
+            </Section>
         </>
     );
 }

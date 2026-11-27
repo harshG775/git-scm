@@ -13,8 +13,8 @@ export function TabHeader({
     leadingAction?: ReactNode;
 }) {
     return (
-        <header className="flex items-center justify-between px-2 py-1.5">
-            <h2 className="text-xs capitalize">{title}</h2>
+        <header className="flex min-h-12 items-center justify-between px-3 pr-2">
+            <h2 className="text-base font-semibold">{title}</h2>
             <div className="flex items-center gap-1">
                 {leadingAction}
                 {action ?? <TooltipIconButton label={`More ${title} options`} icon={Ellipsis} />}

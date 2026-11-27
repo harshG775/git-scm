@@ -277,7 +277,7 @@ function Workspace({ project_id }: { project_id: string }) {
                         </Activity>
                     </ErrorBoundary>
                 </section>
-                <nav className="sticky bottom-0 grid grid-cols-3 border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)]">
+                <nav className="sticky bottom-0 grid grid-cols-3 border-t border-sidebar-border bg-card pb-[env(safe-area-inset-bottom)]">
                     {NAV_ITEMS.map(({ id, label, icon: Icon, count }) => {
                         const isActive = id === active;
                         return (
@@ -287,8 +287,8 @@ function Workspace({ project_id }: { project_id: string }) {
                                 aria-current={isActive ? "page" : undefined}
                                 onClick={() => setActive(id)}
                                 className={cn(
-                                    "flex flex-col items-center gap-1 px-2 pt-3 pb-2 text-xs font-medium transition-colors",
-                                    isActive ? "text-sidebar-primary" : "text-muted-foreground",
+                                    "flex min-h-14 flex-col items-center justify-center gap-1 px-2 text-[11px] font-medium transition-colors",
+                                    isActive ? "text-primary" : "text-muted-foreground",
                                 )}
                             >
                                 <span className="relative">

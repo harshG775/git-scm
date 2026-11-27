@@ -5,7 +5,6 @@ import {
     ArrowUp,
     ArrowUpFromLine,
     Check,
-    ChevronDown,
     Cloud,
     Copy,
     Ellipsis,
@@ -14,17 +13,19 @@ import {
     GitGraph,
     GitMerge,
     Pencil,
-    Search,
     Tag,
     Trash2,
     type LucideIcon,
 } from "lucide-react";
+import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "#/components/ui/empty";
 import { Input } from "#/components/ui/input";
 import { ResponsiveDialog } from "#/components/ui/responsive-dialog";
 import { cn } from "#/lib/utils";
+import { ListRow } from "./ListRow";
+import { SearchField } from "./SearchField";
+import { Section, SectionCard } from "./Section";
 import { TabHeader, TooltipIconButton } from "./TabHeader";
 
 type RefKind = "current" | "local" | "merged" | "remote" | "tag";
@@ -42,19 +43,13 @@ type Ref = {
     hash?: string;
 };
 
-// the icon says what kind of ref a row is; the checked-out branch is highlighted
-const REF_ICONS: Record<RefKind, { icon: LucideIcon; className: string }> = {
-    current: { icon: GitBranch, className: "text-sidebar-primary" },
-    local: { icon: GitBranch, className: "text-muted-foreground" },
+// the icon says what kind of ref a row is; the checked-out branch gets a filled tile
+const REF_ICONS: Record<RefKind, { icon: LucideIcon; tile?: string; className?: string }> = {
+    current: { icon: GitBranch, tile: "bg-primary text-primary-foreground" },
+    local: { icon: GitBranch },
     merged: { icon: GitMerge, className: "text-info" },
-    remote: { icon: Cloud, className: "text-muted-foreground" },
+    remote: { icon: Cloud },
     tag: { icon: Tag, className: "text-warning" },
-};
-
-const STATUS_STYLES: Record<RefStatus, string> = {
-    merged: "bg-muted text-muted-foreground",
-    tracked: "bg-info/15 text-info",
-    "remote only": "bg-muted text-muted-foreground",
 };
 
 type ActionId = "checkout" | "merge" | "pull" | "push" | "push-tag" | "create" | "rename" | "copy" | "delete";
@@ -123,52 +118,52 @@ const GROUPS: { title: string; empty: { title: string; description: string }; it
 
 function RefRow({ item, onMenu }: { item: Ref; onMenu: (item: Ref) => void }) {
     const { name, kind, subject, status, ahead, behind, hash } = item;
-    const { icon: Icon, className } = REF_ICONS[kind];
+    const { icon, tile, className } = REF_ICONS[kind];
     return (
-        <div className="flex min-h-12 items-center gap-2 border-b py-1.5 text-sm last:border-b-0">
-            <Icon className={cn("size-4 shrink-0", className)} aria-hidden="true" />
-            <div className="min-w-0 flex-1">
-                <div className={cn("truncate font-mono", kind === "current" && "font-semibold")} title={name}>
-                    {name}
-                </div>
-                <div className="truncate text-xs text-muted-foreground" title={subject}>
-                    {subject}
-                </div>
-            </div>
-            {behind ? (
-                <span
-                    className="flex shrink-0 items-center font-mono text-xs font-semibold text-warning"
-                    title={`${behind} to pull`}
+        <ListRow
+            icon={icon}
+            tileClassName={tile}
+            iconClassName={className}
+            title={name}
+            mono
+            emphasis={kind === "current"}
+            subtitle={subject}
+            meta={
+                <>
+                    {behind ? (
+                        <span
+                            className="flex items-center font-mono text-xs font-semibold text-warning"
+                            title={`${behind} to pull`}
+                        >
+                            <ArrowDown className="size-3.5" aria-label="behind" />
+                            {behind}
+                        </span>
+                    ) : null}
+                    {ahead ? (
+                        <span
+                            className="flex items-center font-mono text-xs font-semibold text-success"
+                            title={`${ahead} to push`}
+                        >
+                            <ArrowUp className="size-3.5" aria-label="ahead" />
+                            {ahead}
+                        </span>
+                    ) : null}
+                    {status && <Badge variant={status === "tracked" ? "info" : "secondary"}>{status}</Badge>}
+                    {hash && <span className="font-mono text-xs text-muted-foreground">{hash}</span>}
+                </>
+            }
+            actions={
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Options for ${name}`}
+                    onClick={() => onMenu(item)}
                 >
-                    <ArrowDown className="size-3.5" aria-label="behind" />
-                    {behind}
-                </span>
-            ) : null}
-            {ahead ? (
-                <span
-                    className="flex shrink-0 items-center font-mono text-xs font-semibold text-success"
-                    title={`${ahead} to push`}
-                >
-                    <ArrowUp className="size-3.5" aria-label="ahead" />
-                    {ahead}
-                </span>
-            ) : null}
-            {status && (
-                <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", STATUS_STYLES[status])}>
-                    {status}
-                </span>
-            )}
-            {hash && <span className="shrink-0 font-mono text-xs text-muted-foreground">{hash}</span>}
-            <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Options for ${name}`}
-                onClick={() => onMenu(item)}
-            >
-                <Ellipsis aria-hidden="true" />
-            </Button>
-        </div>
+                    <Ellipsis aria-hidden="true" />
+                </Button>
+            }
+        />
     );
 }
 
@@ -349,21 +344,13 @@ export function BranchesTab({ onOpenGraph }: { onOpenGraph: () => void }) {
                 title="Branches"
                 leadingAction={<TooltipIconButton label="Open Git Graph" icon={GitGraph} onClick={onOpenGraph} />}
             />
-            <div className="relative px-2 py-2">
-                <label htmlFor="branch-search" className="sr-only">
-                    Search branches, remotes, and tags
-                </label>
-                <Search
-                    className="pointer-events-none absolute top-1/2 left-5 size-4 -translate-y-1/2 text-muted-foreground"
-                    aria-hidden="true"
-                />
-                <Input
+            <div className="flex px-3 pb-2">
+                <SearchField
                     id="branch-search"
-                    type="search"
+                    label="Search branches, remotes, and tags"
                     value={query}
-                    onChange={(event) => setQuery(event.target.value)}
+                    onChange={setQuery}
                     placeholder="Search branches and tags"
-                    className="pl-9"
                 />
             </div>
             {notice && (
@@ -372,41 +359,31 @@ export function BranchesTab({ onOpenGraph }: { onOpenGraph: () => void }) {
                 </p>
             )}
             {filteredGroups.map(({ title, items, empty }) => (
-                <Collapsible
+                <Section
                     key={title}
+                    title={title}
+                    count={items.length}
                     open={search ? true : openGroups[title]}
                     onOpenChange={(open) => setOpenGroups((current) => ({ ...current, [title]: open }))}
-                    className="border-b border-sidebar-border"
+                    disabled={Boolean(search)}
                 >
-                    <CollapsibleTrigger
-                        disabled={Boolean(search)}
-                        className="group flex min-h-10 w-full items-center gap-1 px-2 text-left text-sm font-medium"
-                    >
-                        <ChevronDown
-                            className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
-                            aria-hidden="true"
-                        />
-                        <span>{title}</span>
-                        <span className="ml-auto text-xs text-muted-foreground">{items.length}</span>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="px-3 py-2">
-                        {items.length === 0 && (
-                            <Empty>
-                                <EmptyHeader>
-                                    <EmptyTitle>
-                                        {search
-                                            ? `No ${title.toLocaleLowerCase()} match “${query.trim()}”`
-                                            : empty.title}
-                                    </EmptyTitle>
-                                    {!search && <EmptyDescription>{empty.description}</EmptyDescription>}
-                                </EmptyHeader>
-                            </Empty>
-                        )}
-                        {items.map((item) => (
-                            <RefRow key={item.name} item={item} onMenu={openMenu} />
-                        ))}
-                    </CollapsibleContent>
-                </Collapsible>
+                    {items.length === 0 ? (
+                        <Empty>
+                            <EmptyHeader>
+                                <EmptyTitle>
+                                    {search ? `No ${title.toLocaleLowerCase()} match “${query.trim()}”` : empty.title}
+                                </EmptyTitle>
+                                {!search && <EmptyDescription>{empty.description}</EmptyDescription>}
+                            </EmptyHeader>
+                        </Empty>
+                    ) : (
+                        <SectionCard>
+                            {items.map((item) => (
+                                <RefRow key={item.name} item={item} onMenu={openMenu} />
+                            ))}
+                        </SectionCard>
+                    )}
+                </Section>
             ))}
             <RefMenu item={selected} open={sheetOpen} onOpenChange={setSheetOpen} onAction={chooseAction} />
             <RefDialog

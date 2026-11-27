@@ -154,7 +154,7 @@ export function FileTree<T = unknown>({
                         onFocus={() => setActivePath(node.path)}
                         style={{ paddingLeft: BASE_PAD + depth * INDENT }}
                         className={cn(
-                            "flex min-h-9 cursor-pointer items-center gap-1.5 pr-2 text-sm outline-none select-none",
+                            "flex min-h-11 cursor-pointer items-center gap-1.5 pr-2 text-sm outline-none select-none md:min-h-9",
                             "hover:bg-sidebar-accent/60 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset",
                             selected && "bg-sidebar-accent text-sidebar-accent-foreground",
                         )}

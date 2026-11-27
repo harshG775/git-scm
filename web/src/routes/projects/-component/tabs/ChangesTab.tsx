@@ -3,7 +3,6 @@ import {
     Archive,
     ArchiveRestore,
     Check,
-    ChevronDown,
     Ellipsis,
     GitCommitVertical,
     Minus,
@@ -13,7 +12,6 @@ import {
     Undo2,
 } from "lucide-react";
 import { Button, buttonVariants } from "#/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -28,6 +26,8 @@ import { StatusLetter } from "#/components/file-tree/status-letter";
 import { Textarea } from "#/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
 import { cn } from "#/lib/utils";
+import { ListRow } from "./ListRow";
+import { Section, SectionCard } from "./Section";
 import { TabHeader } from "./TabHeader";
 
 type ChangesView = "list" | "tree";
@@ -129,7 +129,7 @@ export function ChangesTab() {
             // per-row and per-section buttons
             rowActions: (paths: string[]) => <RowButton label="Unstage" icon={Minus} onClick={() => unstage(paths)} />,
             headerActions: (
-                <RowButton label="Unstage all" icon={Minus} onClick={() => unstage(staged.map((f) => f.path))} />
+                <RowButton bare label="Unstage all" icon={Minus} onClick={() => unstage(staged.map((f) => f.path))} />
             ),
         },
         {
@@ -144,12 +144,19 @@ export function ChangesTab() {
             headerActions: (
                 <>
                     <RowButton
+                        bare
                         label="Discard all"
                         icon={Undo2}
                         danger
                         onClick={() => setDiscarding(changed.map((f) => f.path))}
                     />
-                    <RowButton label="Stage all" icon={Plus} accent onClick={() => stage(changed.map((f) => f.path))} />
+                    <RowButton
+                        bare
+                        label="Stage all"
+                        icon={Plus}
+                        accent
+                        onClick={() => stage(changed.map((f) => f.path))}
+                    />
                 </>
             ),
         },
@@ -187,7 +194,7 @@ export function ChangesTab() {
                     </DropdownMenu>
                 }
             />
-            <section className="mx-2 my-2 border border-sidebar-border p-3">
+            <section className="mx-3 mb-2 rounded-2xl border bg-card p-3">
                 <form onSubmit={submitCommit} className="space-y-3">
                     <div className="flex flex-wrap gap-1.5">
                         {COMMIT_TYPES.map((type) => (
@@ -212,7 +219,12 @@ export function ChangesTab() {
                         placeholder="Commit message"
                         rows={2}
                     />
-                    <Button type="submit" disabled={!commitMessage.trim() || staged.length === 0} className="w-full">
+                    <Button
+                        type="submit"
+                        size="lg"
+                        disabled={!commitMessage.trim() || staged.length === 0}
+                        className="w-full"
+                    >
                         <GitCommitVertical className="size-4" aria-hidden="true" />
                         Commit {staged.length} {staged.length === 1 ? "file" : "files"}
                     </Button>
@@ -245,140 +257,122 @@ export function ChangesTab() {
             </section>
 
             {sections.map(({ title, files, rowActions, headerActions }) => (
-                <Collapsible key={title} defaultOpen className="border-b border-sidebar-border">
-                    <div className="flex items-center pr-2">
-                        <CollapsibleTrigger className="group flex min-h-10 min-w-0 flex-1 items-center gap-1 px-2 text-left text-sm font-medium">
-                            <ChevronDown
-                                className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
-                                aria-hidden="true"
+                <Section key={title} title={title} count={files.length} actions={files.length > 0 && headerActions}>
+                    {files.length === 0 ? (
+                        title === "Staged Changes" ? (
+                            <Empty>
+                                <EmptyHeader>
+                                    <EmptyDescription>Nothing staged. Tap + on a change to stage it.</EmptyDescription>
+                                </EmptyHeader>
+                            </Empty>
+                        ) : (
+                            <Empty>
+                                <EmptyHeader>
+                                    <EmptyTitle>Working tree clean</EmptyTitle>
+                                    <EmptyDescription>Last commit: feat(files): open files in tabs</EmptyDescription>
+                                </EmptyHeader>
+                            </Empty>
+                        )
+                    ) : (
+                        <SectionCard>
+                            <FileTree<ChangeFile>
+                                label={title}
+                                view={changesView}
+                                entries={files.map((file): TreeEntry<ChangeFile> => ({ path: file.path, data: file }))}
+                                defaultOpen
+                                showFolderCount
+                                renderMeta={({ entry }) => entry?.data && <ChangeMeta file={entry.data} />}
+                                renderActions={(node) => rowActions(nodePaths(node))}
                             />
-                            <span>{title}</span>
-                            <span className="ml-auto text-xs text-muted-foreground">{files.length}</span>
-                        </CollapsibleTrigger>
-                        {files.length > 0 && <div className="ml-2 flex items-center gap-1">{headerActions}</div>}
-                    </div>
-                    <CollapsibleContent>
-                        {files.length === 0 &&
-                            (title === "Staged Changes" ? (
-                                <Empty className="mx-3 my-2">
-                                    <EmptyHeader>
-                                        <EmptyDescription>
-                                            Nothing staged. Tap + on a change to stage it.
-                                        </EmptyDescription>
-                                    </EmptyHeader>
-                                </Empty>
-                            ) : (
-                                <Empty className="mx-3 my-2">
-                                    <EmptyHeader>
-                                        <EmptyTitle>Working tree clean</EmptyTitle>
-                                        <EmptyDescription>
-                                            Last commit: feat(files): open files in tabs
-                                        </EmptyDescription>
-                                    </EmptyHeader>
-                                </Empty>
-                            ))}
-                        <FileTree<ChangeFile>
-                            label={title}
-                            view={changesView}
-                            entries={files.map((file): TreeEntry<ChangeFile> => ({ path: file.path, data: file }))}
-                            defaultOpen
-                            showFolderCount
-                            renderMeta={({ entry }) => entry?.data && <ChangeMeta file={entry.data} />}
-                            renderActions={(node) => rowActions(nodePaths(node))}
-                        />
-                    </CollapsibleContent>
-                </Collapsible>
+                        </SectionCard>
+                    )}
+                </Section>
             ))}
-            <Collapsible className="border-b border-sidebar-border">
-                <CollapsibleTrigger className="group flex min-h-10 w-full items-center gap-1 px-2 text-left text-sm font-medium">
-                    <ChevronDown
-                        className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
-                        aria-hidden="true"
-                    />
-                    <span>Stashes</span>
-                    <span className="ml-auto text-xs text-muted-foreground">{stashes.length}</span>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="px-3 py-2">
-                    <form onSubmit={submitStash} className="space-y-3 border-b pb-3">
-                        <label className="sr-only" htmlFor="stash-message">
-                            Stash message
-                        </label>
-                        <Input
-                            id="stash-message"
-                            value={stashMessage}
-                            onChange={(event) => setStashMessage(event.target.value)}
-                            placeholder="Stash message (optional)"
-                        />
-                        <Button type="submit" disabled={stashFileCount === 0} className="w-full">
-                            <Archive className="size-4" aria-hidden="true" />
-                            Stash {stashFileCount} {stashFileCount === 1 ? "file" : "files"}
-                        </Button>
-                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                            <span className="text-muted-foreground">
-                                {stashFileCount} {stashFileCount === 1 ? "file" : "files"} selected
-                            </span>
-                            <label className="flex min-h-8 items-center gap-2 text-muted-foreground">
-                                <input
-                                    type="checkbox"
-                                    checked={includeUntracked}
-                                    onChange={(event) => setIncludeUntracked(event.target.checked)}
-                                    className="size-4 accent-sidebar-primary"
-                                />
-                                Include untracked
+            <Section title="Stashes" count={stashes.length} defaultOpen={false}>
+                <div className="space-y-3">
+                    <SectionCard className="p-3">
+                        <form onSubmit={submitStash} className="space-y-3">
+                            <label className="sr-only" htmlFor="stash-message">
+                                Stash message
                             </label>
-                        </div>
-                    </form>
-                    {stashes.length === 0 && (
+                            <Input
+                                id="stash-message"
+                                value={stashMessage}
+                                onChange={(event) => setStashMessage(event.target.value)}
+                                placeholder="Stash message (optional)"
+                            />
+                            <Button type="submit" size="lg" disabled={stashFileCount === 0} className="w-full">
+                                <Archive className="size-4" aria-hidden="true" />
+                                Stash {stashFileCount} {stashFileCount === 1 ? "file" : "files"}
+                            </Button>
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <span className="text-muted-foreground">
+                                    {stashFileCount} {stashFileCount === 1 ? "file" : "files"} selected
+                                </span>
+                                <label className="flex min-h-8 items-center gap-2 text-muted-foreground">
+                                    <input
+                                        type="checkbox"
+                                        checked={includeUntracked}
+                                        onChange={(event) => setIncludeUntracked(event.target.checked)}
+                                        className="size-4 accent-primary"
+                                    />
+                                    Include untracked
+                                </label>
+                            </div>
+                        </form>
+                    </SectionCard>
+                    {stashes.length === 0 ? (
                         <Empty>
                             <EmptyHeader>
                                 <EmptyTitle>No stashes</EmptyTitle>
                                 <EmptyDescription>Stash your changes to save them here.</EmptyDescription>
                             </EmptyHeader>
                         </Empty>
+                    ) : (
+                        <SectionCard>
+                            {stashes.map(({ message, branch, age }) => (
+                                <ListRow key={message} icon={Archive} title={message} subtitle={`${branch} · ${age}`}>
+                                    <div className="mt-2 flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => applyStash(message)}
+                                        >
+                                            <Play aria-hidden="true" />
+                                            Apply
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => popStash(message)}
+                                        >
+                                            <ArchiveRestore aria-hidden="true" />
+                                            Pop
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-destructive"
+                                            onClick={() => setDroppingStash(message)}
+                                        >
+                                            <Trash2 aria-hidden="true" />
+                                            Drop
+                                        </Button>
+                                    </div>
+                                </ListRow>
+                            ))}
+                        </SectionCard>
                     )}
-                    {stashes.map(({ message, branch, age }) => (
-                        <div key={message} className="flex items-start gap-2 border-b py-2 last:border-b-0">
-                            <Archive className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <div className="min-w-0 flex-1">
-                                <div className="text-sm">{message}</div>
-                                <div className="text-xs text-muted-foreground">
-                                    {branch} · {age}
-                                </div>
-                                <div className="mt-2 flex gap-1.5">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => applyStash(message)}
-                                    >
-                                        <Play aria-hidden="true" />
-                                        Apply
-                                    </Button>
-                                    <Button type="button" variant="outline" size="sm" onClick={() => popStash(message)}>
-                                        <ArchiveRestore aria-hidden="true" />
-                                        Pop
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-destructive"
-                                        onClick={() => setDroppingStash(message)}
-                                    >
-                                        <Trash2 aria-hidden="true" />
-                                        Drop
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
                     {stashNotice && (
-                        <p role="status" className="pt-2 text-xs text-muted-foreground">
+                        <p role="status" className="text-xs text-muted-foreground">
                             {stashNotice}
                         </p>
                     )}
-                </CollapsibleContent>
-            </Collapsible>
+                </div>
+            </Section>
             <NativeDialog
                 open={discarding !== null}
                 onOpenChange={(open) => !open && setDiscarding(null)}
@@ -423,22 +417,28 @@ function RowButton({
     onClick,
     danger,
     accent,
+    bare,
 }: {
     label: string;
     icon: typeof Plus;
     onClick: () => void;
     danger?: boolean;
     accent?: boolean;
+    /** no border, for buttons in a section header */
+    bare?: boolean;
 }) {
     return (
         <Button
             type="button"
-            variant="outline"
-            size="icon-sm"
+            variant={bare ? "ghost" : "outline"}
+            size="icon"
             aria-label={label}
             title={label}
             onClick={onClick}
-            className={cn(danger && "text-destructive", accent && "border-sidebar-primary/40 bg-sidebar-primary/15")}
+            className={cn(
+                danger && "text-destructive",
+                accent && (bare ? "text-primary" : "border-primary/40 bg-primary/15 text-primary"),
+            )}
         >
             <Icon aria-hidden="true" />
         </Button>
