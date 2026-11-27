@@ -298,19 +298,16 @@ export function BranchesTab({ projectId, onOpenGraph }: { projectId: string; onO
     const [sheetOpen, setSheetOpen] = useState(false);
     const [dialog, setDialog] = useState<RefDialogState | null>(null);
 
+    const fetchRemotes = () =>
+        run(() => api.gitFetch(projectId).then((r) => r.output || "Fetched."), {
+            loadingTitle: "Fetching remotes…",
+        });
+
     const header = (
         <TabHeader
             title="Branches"
-            leadingAction={
-                <>
-                    <TooltipIconButton label="Open Git Graph" icon={GitGraph} onClick={onOpenGraph} />
-                    <TooltipIconButton
-                        label="Fetch from remotes"
-                        icon={RefreshCw}
-                        onClick={() => run(() => api.gitFetch(projectId).then((r) => r.output || "Fetched."))}
-                    />
-                </>
-            }
+            leadingAction={<TooltipIconButton label="Open Git Graph" icon={GitGraph} onClick={onOpenGraph} />}
+            refresh={{ onClick: fetchRemotes, refreshing: busy, label: "Fetch from remotes", icon: RefreshCw }}
             action={
                 <TooltipIconButton
                     label="New branch"
@@ -441,13 +438,19 @@ export function BranchesTab({ projectId, onOpenGraph }: { projectId: string; onO
                 run(() => api.gitMerge(projectId, item.name).then((r) => r.output || `Merged ${item.name}.`));
                 break;
             case "pull":
-                run(() => api.gitPull(projectId).then((r) => r.output || "Already up to date."));
+                run(() => api.gitPull(projectId).then((r) => r.output || "Already up to date."), {
+                    loadingTitle: "Pulling…",
+                });
                 break;
             case "push":
-                run(() => api.gitPush(projectId).then((r) => r.output || "Pushed."));
+                run(() => api.gitPush(projectId).then((r) => r.output || "Pushed."), {
+                    loadingTitle: "Pushing…",
+                });
                 break;
             case "push-tag":
-                run(() => api.gitPushTag(projectId, item.name).then((r) => r.output || `Pushed ${item.name}.`));
+                run(() => api.gitPushTag(projectId, item.name).then((r) => r.output || `Pushed ${item.name}.`), {
+                    loadingTitle: "Pushing tag…",
+                });
                 break;
         }
     };

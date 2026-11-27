@@ -15,7 +15,7 @@ export function TabHeader({
     action?: ReactNode;
     leadingAction?: ReactNode;
     /** A refresh button, plus a thin progress line under the header while it runs. */
-    refresh?: { onClick: () => void; refreshing: boolean };
+    refresh?: { onClick: () => void; refreshing: boolean; label?: string; icon?: LucideIcon };
 }) {
     return (
         <header className="relative flex min-h-12 items-center justify-between px-3 pr-2">
@@ -24,8 +24,8 @@ export function TabHeader({
                 {leadingAction}
                 {refresh && (
                     <TooltipIconButton
-                        label="Refresh"
-                        icon={RefreshCw}
+                        label={refresh.label ?? "Refresh"}
+                        icon={refresh.icon ?? RefreshCw}
                         onClick={refresh.onClick}
                         spinning={refresh.refreshing}
                         disabled={refresh.refreshing}
