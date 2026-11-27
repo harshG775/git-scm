@@ -65,8 +65,9 @@ const config = defineConfig({
                 name: "git csm",
                 short_name: "git csm",
                 description: "Source control and code browsing, built for your phone.",
-                theme_color: "#262626",
-                background_color: "#262626",
+                // A manifest has one color for both themes; the splash screen uses the dark background.
+                theme_color: "#0d1113",
+                background_color: "#0d1113",
                 display: "standalone",
                 start_url: "/",
                 scope: "/",

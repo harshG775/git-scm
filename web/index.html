@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-        <meta name="theme-color" content="#262626" />
+        <meta name="theme-color" content="#0d1113" />
         <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <title>git csm</title>
@@ -17,6 +17,7 @@
                 var dark = theme === "dark" || (theme === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
                 document.documentElement.classList.toggle("dark", dark);
                 document.documentElement.style.colorScheme = dark ? "dark" : "light";
+                document.querySelector('meta[name="theme-color"]').content = dark ? "#0d1113" : "#edf1ef";
             })();
         </script>
         <style>
@@ -24,14 +25,27 @@
             html,
             body {
                 margin: 0;
-                background: #0a0a0a;
+            }
+            /* Skeleton colors follow the theme class set by the script above. Only #boot is styled here:
+               an unlayered rule on html/body would beat Tailwind's base layer and pin the page background. */
+            #boot {
+                --boot-bg: #edf1ef;
+                --boot-pane: #ffffff;
+                --boot-bar: #dae2de;
+                --boot-hint: #5c6870;
+            }
+            .dark #boot {
+                --boot-bg: #0d1113;
+                --boot-pane: #151b1e;
+                --boot-bar: #1b2327;
+                --boot-hint: #8a989e;
             }
             #boot {
                 position: fixed;
                 inset: 0;
                 z-index: 1;
                 display: flex;
-                background: #0a0a0a;
+                background: var(--boot-bg);
                 font-family: system-ui, sans-serif;
             }
             #boot .pane {
@@ -42,7 +56,7 @@
                 box-sizing: border-box;
                 width: 100%;
                 max-width: 32rem;
-                background: #171717;
+                background: var(--boot-pane);
             }
             #boot .main {
                 display: none;
@@ -54,7 +68,7 @@
             #boot .bar {
                 height: 14px;
                 border-radius: 6px;
-                background: #262626;
+                background: var(--boot-bar);
                 animation: boot-pulse 1.6s ease-in-out infinite;
             }
             #boot .hint {
@@ -64,7 +78,7 @@
                 bottom: 24px;
                 text-align: center;
                 font-size: 13px;
-                color: #a3a3a3;
+                color: var(--boot-hint);
                 opacity: 0;
                 animation: boot-hint 0.3s 12s forwards;
             }

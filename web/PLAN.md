@@ -48,3 +48,13 @@ API shape: see [../PLAN.md](../PLAN.md).
 - [ ] Remotes, just-in-time identity/remote prompts, credentials
 
 - [ ] CodeMirror 6, command palette button, search, offline shell
+
+## Theme and styles fixes
+
+Found by screenshotting every screen in light and dark. `html`/`body` stayed near-black in light mode because the boot skeleton's unlayered `<style>` in `index.html` beats Tailwind's `@layer base` background; Settings (no background of its own) showed it.
+
+- [x] 1. Scope the boot styles to `#boot` so `html`/`body` take their color from the theme tokens
+- [x] 2. Make the boot skeleton follow the theme (no dark flash in light mode)
+- [x] 3. `theme-color` meta follows the theme (`applyTheme` + the inline script); manifest colors match a real background
+- [x] 4. File icons: light and dark variants (pale `-300`/`-400` shades are weak on white)
+- [x] 5. Re-run the screenshot sweep in both themes and compare (Settings must be light in light mode)
