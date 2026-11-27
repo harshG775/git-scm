@@ -41,4 +41,10 @@ API shape: see [../PLAN.md](../PLAN.md).
 - [x] thin scrollbars everywhere
 - [x] Branches panel as collapsible Local / Remote / Stash sections (open state remembered): create + switch, checkout; fetch and track remote branches; stash, apply, pop, drop
 
+## M5
+
+- [x] Repository sheet from the project/branch crumb: current repository and branch, switch branch, switch to a recent repository or open another folder
+- [x] Repository settings: local git config overrides, with inherited global values shown and cleared by empties (`GitConfigForm`, shared with the global settings page)
+- [ ] Remotes, just-in-time identity/remote prompts, credentials
+
 - [ ] CodeMirror 6, command palette button, search, offline shell

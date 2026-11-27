@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronsDownUp } from "lucide-react";
 import { Button } from "#/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "#/components/ui/empty";
@@ -10,6 +10,7 @@ import { FileTree, type TreeEntry, type TreeNode } from "#/components/file-tree/
 import { changedCountByDir, formatSize, statusByPath } from "#/components/file-tree/git-status";
 import { StatusLetter } from "#/components/file-tree/status-letter";
 import type { Entry } from "#/lib/api";
+import { resync } from "#/lib/live";
 import { gitStatusOptions, treeOptions } from "#/lib/queries";
 import { useWorkspace } from "#/stores/workspace";
 import { SearchField } from "./SearchField";
@@ -53,7 +54,16 @@ export function FilesTab({
     const expanded = useWorkspace((s) => s.expanded);
     const toggleDir = useWorkspace((s) => s.toggleDir);
     const collapseAll = useWorkspace((s) => s.collapseAll);
+    const queryClient = useQueryClient();
     const [query, setQuery] = useState("");
+    const [refreshing, setRefreshing] = useState(false);
+
+    // refetch every open folder and the git status, like a manual live-update sync
+    const refresh = () => {
+        if (refreshing) return;
+        setRefreshing(true);
+        void resync(queryClient, projectId).finally(() => setRefreshing(false));
+    };
 
     // one directory level per query: the root, plus every folder the user has opened
     const levels = useQueries({ queries: ["", ...expanded].map((path) => treeOptions(projectId, path)) });
@@ -93,7 +103,7 @@ export function FilesTab({
 
     return (
         <>
-            <TabHeader title="Files" />
+            <TabHeader title="Files" refresh={{ onClick: refresh, refreshing }} />
             <div className="flex items-center gap-2 px-3 pb-2">
                 <SearchField
                     id="file-search"

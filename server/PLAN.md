@@ -52,3 +52,7 @@ API shape: see [../PLAN.md](../PLAN.md).
   `GIT_LITERAL_PATHSPECS`. The poller also hashes the stash count and all branch tips, so outside `git stash`,
   `git fetch` and `git branch` reach the panels.
 - [ ] move Vite `outDir` to `internal/ui/dist` to drop the copy step
+
+## M5
+- [x] local git config: `GET`/`PUT /api/p/{id}/git/config` with the same allowlist and validation as global config; an empty value removes the local override
+- [ ] remotes API (list, add, change URL, remove)

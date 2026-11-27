@@ -47,6 +47,7 @@ UX modeled on VS Code (Welcome tab, Explorer, file tabs, built-in SCM view).
 | POST | `/api/p/{id}/git/{pull,push}` | returns `{output}`; pull is fast-forward only |
 | PUT | `/api/p/{id}/watch?client=` | `{dirs, files}` the client has expanded or open; 404 until its stream is open |
 | GET | `/api/p/{id}/events?client=` | SSE: `ready`, `git`, `file {path}`, `dir {path}`; `client` is a random id the page picks |
+| GET, PUT | `/api/p/{id}/git/config` | repository git config overrides: GET returns `{path, values}`, PUT `{key, value}`; an empty value removes the override |
 
 Errors: `{error}` JSON with a matching status code.
 
@@ -56,7 +57,7 @@ Errors: `{error}` JSON with a matching status code.
 - [x] M2: live updates + conflicts, PWA
 - [x] M3: Source Control
 - [ ] M4: polish
-- [ ] M5: Settings (below)
+- [ ] M5: Settings (below) — global config, repository overrides, and the repository sheet are done; remotes, prompts, and credentials remain
 
 ## Open
 - Terminal in scope? (Would need a WebSocket.)
@@ -72,14 +73,16 @@ run programs (`alias.*` with `!`, `core.sshCommand`, `core.hooksPath`, `core.fsm
 so letting the API set arbitrary keys would be remote code execution. Allowed: `user.name`, `user.email`,
 `init.defaultBranch`, `pull.rebase`, `push.autoSetupRemote`, `core.autocrlf`.
 
-| Phase | What | Where in the UI |
-| --- | --- | --- |
-| 1 | Global git config (identity, defaults) + app theme | Settings sheet, opened from a gear on the Welcome page |
-| 2 | This repository: identity override, effective value with its source (repo / global) | Same sheet, "This repository" segment; shown inside a project |
-| 3 | Remotes: list, add, change URL, remove | Sheet, plus an "Add remote" button in the empty Remotes card |
-| 4 | Just-in-time prompts | Notice above the commit box when no identity is set; "Set identity" / "Add remote" actions on the failure toast |
-| 5 | Entry point inside a project | "..." button in the sidebar header (Repository sheet: remotes, identity, settings, switch project) |
-| 6 | Credentials for HTTPS push (token) or showing the SSH public key | later, needs its own design |
+| Phase | Status | What | Where in the UI |
+| --- | --- | --- | --- |
+| 1 | Done | Global git config (identity, defaults) + app theme | Settings page, opened from a gear on the Welcome page |
+| 2 | Done | This repository: local overrides, with the inherited global value shown | Repository sheet → Repository settings |
+| 3 | Planned | Remotes: list, add, change URL, remove | Sheet, plus an "Add remote" button in the empty Remotes card |
+| 4 | Planned | Just-in-time prompts | Notice above the commit box when no identity is set; "Set identity" / "Add remote" actions on the failure toast |
+| 5 | Partial | Entry point inside a project: current repository, switch branch, change repository, repository settings | Repository name or branch in the sidebar header opens the Repository sheet; remotes and identity still to come |
+| 6 | Later | Credentials for HTTPS push (token) or showing the SSH public key | Later, needs its own design |
 
-API (phase 1): `GET /api/git/config` returns `{path, values}` for the global file; `PUT /api/git/config` takes
-`{key, value}` (empty value unsets the key). Phase 2 adds `scope=local` on `/api/p/{id}/git/config`.
+API: `GET /api/git/config` returns `{path, values}` for the global file; `PUT /api/git/config` takes
+`{key, value}` (empty value unsets the key). The repository scope uses `GET/PUT /api/p/{id}/git/config` with
+the same shape; an empty value removes the local override so the global value applies again.
+

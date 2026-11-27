@@ -284,6 +284,7 @@ function Workspace({ project_id }: { project_id: string }) {
                         </Button>
                     </div>
                 </header>
+                {/* loading */}
                 <section
                     aria-label={active}
                     data-project={project_id}

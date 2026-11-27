@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Archive,
     ArchiveRestore,
@@ -21,6 +21,7 @@ import { FileTree, type TreeEntry, type TreeNode } from "#/components/file-tree/
 import { StatusLetter } from "#/components/file-tree/status-letter";
 import { Textarea } from "#/components/ui/textarea";
 import { api, type GitChange, type GitLines, type GitStash } from "#/lib/api";
+import { resync } from "#/lib/live";
 import { gitBranchesOptions, gitNumstatOptions, gitStashesOptions, gitStatusOptions } from "#/lib/queries";
 import { timeAgo } from "#/lib/time";
 import { useGitAction } from "#/lib/use-git-action";
@@ -64,6 +65,15 @@ export function ChangesTab({
     const { data: branches } = useQuery(gitBranchesOptions(projectId));
     const { data: stashList } = useQuery(gitStashesOptions(projectId));
     const { run, busy } = useGitAction(projectId);
+    const queryClient = useQueryClient();
+    const [refreshing, setRefreshing] = useState(false);
+
+    // refetch git state and the files the editor has open
+    const refresh = () => {
+        if (refreshing) return;
+        setRefreshing(true);
+        void resync(queryClient, projectId).finally(() => setRefreshing(false));
+    };
 
     const [changesView, setChangesView] = useState<ChangesView>("list");
     const [commitMessage, setCommitMessage] = useState("");
@@ -78,6 +88,7 @@ export function ChangesTab({
     const header = (
         <TabHeader
             title="Changes"
+            refresh={{ onClick: refresh, refreshing }}
             action={
                 <TooltipIconButton
                     label={changesView === "tree" ? "View as list" : "View as tree"}

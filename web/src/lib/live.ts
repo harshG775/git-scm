@@ -42,10 +42,12 @@ export async function checkFile(queryClient: QueryClient, projectId: string, pat
 
 /** After (re)connecting we may have missed events, so re-check everything that is on screen. */
 export async function resync(queryClient: QueryClient, projectId: string): Promise<void> {
-    void queryClient.invalidateQueries({ queryKey: ["tree", projectId] });
-    void queryClient.invalidateQueries({ queryKey: ["git", projectId] });
     const files = useWorkspace.getState().tabs.filter((t) => t.kind === "file");
-    await Promise.all(files.map((t) => checkFile(queryClient, projectId, t.path)));
+    await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tree", projectId] }),
+        queryClient.invalidateQueries({ queryKey: ["git", projectId] }),
+        ...files.map((t) => checkFile(queryClient, projectId, t.path)),
+    ]);
 }
 
 /**
