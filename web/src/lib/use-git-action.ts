@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "#/components/ui/toast";
+import { notify } from "#/lib/notify";
 import { resync } from "#/lib/live";
 
 /** First line becomes the toast's title, the rest (git's detail) its description. */
 const showToast = (type: "success" | "error", text: string, title?: string) => {
     const [first = "", ...rest] = text.trim().split("\n");
-    toast.add({
+    notify({
         type,
         title: title ?? first,
         description: (title ? text : rest.join("\n")).trim() || undefined,

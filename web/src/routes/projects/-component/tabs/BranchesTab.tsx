@@ -26,8 +26,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "#/components/u
 import { Input } from "#/components/ui/input";
 import { ResponsiveDialog } from "#/components/ui/responsive-dialog";
 import { Skeleton } from "#/components/ui/skeleton";
-import { toast } from "#/components/ui/toast";
 import { api } from "#/lib/api";
+import { notify } from "#/lib/notify";
 import { gitBranchesOptions, gitRemotesOptions, gitTagsOptions } from "#/lib/queries";
 import { useGitAction } from "#/lib/use-git-action";
 import { cn } from "#/lib/utils";
@@ -426,8 +426,8 @@ export function BranchesTab({ projectId, onOpenGraph }: { projectId: string; onO
                 break;
             case "copy":
                 navigator.clipboard?.writeText(item.name).then(
-                    () => toast.add({ type: "success", title: `Copied "${item.name}"`, timeout: 2500 }),
-                    () => toast.add({ type: "error", title: "Could not copy to the clipboard" }),
+                    () => notify({ type: "success", title: `Copied "${item.name}"`, timeout: 2500, record: false }),
+                    () => notify({ type: "error", title: "Could not copy to the clipboard" }),
                 );
                 break;
             case "checkout":

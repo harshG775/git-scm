@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Activity, startTransition, useEffect, useState } from "react";
 import { ErrorBoundary } from "#/components/error-boundary";
+import { NotificationCenter } from "#/components/NotificationCenter";
 import { Button } from "#/components/ui/button";
 import { Skeleton } from "#/components/ui/skeleton";
 import { GraphView } from "#/components/shell/GraphView";
@@ -250,6 +251,7 @@ function Workspace({ project_id }: { project_id: string }) {
                     <div className="ml-auto flex items-center">
                         <LiveDot live={live} />
                         <SyncButton sync={sync} />
+                        <NotificationCenter />
                         <Button
                             type="button"
                             aria-label="Collapse sidebar"
