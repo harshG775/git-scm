@@ -73,7 +73,7 @@ export function FilesTab({
         if (node.kind === "folder") {
             const changed = changedInDir.get(node.path);
             return changed ? (
-                <span className="shrink-0 rounded-full bg-amber-500/15 px-1.5 text-xs font-medium text-amber-500">
+                <span className="shrink-0 rounded-full bg-warning/15 px-1.5 text-xs font-medium text-warning">
                     {changed}
                 </span>
             ) : null;

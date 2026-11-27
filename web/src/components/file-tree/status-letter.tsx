@@ -1,14 +1,14 @@
 import { cn } from "#/lib/utils";
 
 const STYLE: Record<string, string> = {
-    M: "text-amber-500 bg-amber-500/15",
-    T: "text-amber-500 bg-amber-500/15",
-    A: "text-emerald-500 bg-emerald-500/15",
-    U: "text-emerald-500 bg-emerald-500/15",
-    D: "text-red-500 bg-red-500/15",
-    R: "text-sky-500 bg-sky-500/15",
-    C: "text-sky-500 bg-sky-500/15",
-    "!": "text-red-500 bg-red-500/15",
+    M: "text-warning bg-warning/15",
+    T: "text-warning bg-warning/15",
+    A: "text-success bg-success/15",
+    U: "text-success bg-success/15",
+    D: "text-destructive bg-destructive/15",
+    R: "text-info bg-info/15",
+    C: "text-info bg-info/15",
+    "!": "text-destructive bg-destructive/15",
 };
 
 const TITLE: Record<string, string> = {

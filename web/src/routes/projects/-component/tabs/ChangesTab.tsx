@@ -451,8 +451,8 @@ function ChangeMeta({ file: { status, added, removed } }: { file: ChangeFile }) 
         <span className="flex shrink-0 items-center gap-2 text-xs font-medium">
             {(added !== undefined || removed !== undefined) && (
                 <span className="flex flex-col items-end font-mono leading-tight">
-                    <span className="text-emerald-500">+{added ?? 0}</span>
-                    <span className="text-red-500">-{removed ?? 0}</span>
+                    <span className="text-success">+{added ?? 0}</span>
+                    <span className="text-destructive">-{removed ?? 0}</span>
                 </span>
             )}
             <StatusLetter status={status} />

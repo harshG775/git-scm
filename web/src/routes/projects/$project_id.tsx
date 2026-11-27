@@ -125,7 +125,7 @@ function LiveDot({ live }: { live: boolean }) {
             title={live ? "Live updates on" : "Reconnecting…"}
             className={cn(
                 "mx-2 size-2 shrink-0 rounded-full transition-colors",
-                live ? "bg-green-500" : "animate-pulse bg-muted-foreground/50",
+                live ? "bg-success" : "animate-pulse bg-muted-foreground/50",
             )}
         />
     );

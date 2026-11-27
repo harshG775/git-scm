@@ -1,13 +1,18 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/inter";
+@import "@fontsource-variable/instrument-sans";
+@import "@fontsource-variable/jetbrains-mono";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: "Inter Variable", sans-serif;
+    --font-sans: "Instrument Sans Variable", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-info: var(--info);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,72 +54,81 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
+    /* Pocket Git palette: cool grey-green neutrals with an orange accent.
+       --background is the page, --card/--popover/--sidebar are raised surfaces, --muted a quiet fill. */
+    --background: oklch(0.955 0.005 165);
+    --foreground: oklch(0.205 0.01 234.3);
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
+    --card-foreground: oklch(0.205 0.01 234.3);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    --popover-foreground: oklch(0.205 0.01 234.3);
+    --primary: oklch(0.601 0.186 37);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.973 0.004 157.2);
+    --secondary-foreground: oklch(0.205 0.01 234.3);
+    --muted: oklch(0.973 0.004 157.2);
+    --muted-foreground: oklch(0.51 0.019 237);
+    --accent: oklch(0.973 0.004 157.2);
+    --accent-foreground: oklch(0.205 0.01 234.3);
+    --destructive: oklch(0.545 0.183 27.5);
+    --border: oklch(0.906 0.01 164.8);
+    --input: oklch(0.906 0.01 164.8);
+    --ring: oklch(0.601 0.186 37);
+    /* git status colors: added, modified, informational (tracked, renamed) */
+    --success: oklch(0.528 0.135 150.5);
+    --warning: oklch(0.548 0.115 71.8);
+    --info: oklch(0.526 0.179 261.9);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --radius: 0.75rem;
+    --sidebar: oklch(1 0 0);
+    --sidebar-foreground: oklch(0.205 0.01 234.3);
+    --sidebar-primary: oklch(0.601 0.186 37);
+    --sidebar-primary-foreground: oklch(1 0 0);
+    --sidebar-accent: oklch(0.973 0.004 157.2);
+    --sidebar-accent-foreground: oklch(0.205 0.01 234.3);
+    --sidebar-border: oklch(0.906 0.01 164.8);
+    --sidebar-ring: oklch(0.601 0.186 37);
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
+    --background: oklch(0.174 0.008 229.4);
+    --foreground: oklch(0.941 0.007 174.4);
+    --card: oklch(0.217 0.011 229.5);
+    --card-foreground: oklch(0.941 0.007 174.4);
+    --popover: oklch(0.217 0.011 229.5);
+    --popover-foreground: oklch(0.941 0.007 174.4);
+    --primary: oklch(0.727 0.173 39);
+    --primary-foreground: oklch(0.174 0.03 48.1);
+    --secondary: oklch(0.25 0.014 229.6);
+    --secondary-foreground: oklch(0.941 0.007 174.4);
+    --muted: oklch(0.25 0.014 229.6);
+    --muted-foreground: oklch(0.67 0.018 225.3);
+    --accent: oklch(0.25 0.014 229.6);
+    --accent-foreground: oklch(0.941 0.007 174.4);
+    --destructive: oklch(0.718 0.176 25.7);
+    --border: oklch(0.305 0.017 227.3);
+    --input: oklch(0.305 0.017 227.3);
+    --ring: oklch(0.727 0.173 39);
+    --success: oklch(0.73 0.145 155.2);
+    --warning: oklch(0.798 0.132 83.4);
+    --info: oklch(0.722 0.144 262.8);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --sidebar: oklch(0.217 0.011 229.5);
+    --sidebar-foreground: oklch(0.941 0.007 174.4);
+    --sidebar-primary: oklch(0.727 0.173 39);
+    --sidebar-primary-foreground: oklch(0.174 0.03 48.1);
+    --sidebar-accent: oklch(0.25 0.014 229.6);
+    --sidebar-accent-foreground: oklch(0.941 0.007 174.4);
+    --sidebar-border: oklch(0.305 0.017 227.3);
+    --sidebar-ring: oklch(0.727 0.173 39);
 }
 
 @layer base {

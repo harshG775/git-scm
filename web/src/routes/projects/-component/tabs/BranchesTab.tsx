@@ -46,14 +46,14 @@ type Ref = {
 const REF_ICONS: Record<RefKind, { icon: LucideIcon; className: string }> = {
     current: { icon: GitBranch, className: "text-sidebar-primary" },
     local: { icon: GitBranch, className: "text-muted-foreground" },
-    merged: { icon: GitMerge, className: "text-violet-400" },
+    merged: { icon: GitMerge, className: "text-info" },
     remote: { icon: Cloud, className: "text-muted-foreground" },
-    tag: { icon: Tag, className: "text-amber-400" },
+    tag: { icon: Tag, className: "text-warning" },
 };
 
 const STATUS_STYLES: Record<RefStatus, string> = {
     merged: "bg-muted text-muted-foreground",
-    tracked: "bg-blue-500/15 text-blue-400",
+    tracked: "bg-info/15 text-info",
     "remote only": "bg-muted text-muted-foreground",
 };
 
@@ -137,7 +137,7 @@ function RefRow({ item, onMenu }: { item: Ref; onMenu: (item: Ref) => void }) {
             </div>
             {behind ? (
                 <span
-                    className="flex shrink-0 items-center font-mono text-xs font-semibold text-amber-500"
+                    className="flex shrink-0 items-center font-mono text-xs font-semibold text-warning"
                     title={`${behind} to pull`}
                 >
                     <ArrowDown className="size-3.5" aria-label="behind" />
@@ -146,7 +146,7 @@ function RefRow({ item, onMenu }: { item: Ref; onMenu: (item: Ref) => void }) {
             ) : null}
             {ahead ? (
                 <span
-                    className="flex shrink-0 items-center font-mono text-xs font-semibold text-emerald-500"
+                    className="flex shrink-0 items-center font-mono text-xs font-semibold text-success"
                     title={`${ahead} to push`}
                 >
                     <ArrowUp className="size-3.5" aria-label="ahead" />
