@@ -8,7 +8,7 @@ web:
 
 # Single self-contained binary (frontend embedded).
 build: web
-	cd server && go build -o ../bin/git-csm .
+	cd server && go build -o ../bin/git-scm .
 
 # Rebuild the frontend, then run the server: the whole app on :8080 from one process.
 run: web

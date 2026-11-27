@@ -1,11 +1,11 @@
 #!/bin/sh
-# Installs git-csm from the latest GitHub release.
+# Installs git-scm from the latest GitHub release.
 #   curl -fsSL https://raw.githubusercontent.com/harshG775/git-scm/main/install.sh | sh
-# Pin a version: GIT_CSM_VERSION=v0.1.0 sh install.sh
+# Pin a version: GIT_SCM_VERSION=v0.1.0 sh install.sh
 set -eu
 
 REPO="harshG775/git-scm"
-BIN="git-csm"
+BIN="git-scm"
 
 case "$(uname -m)" in
   aarch64|arm64) ARCH=arm64 ;;
@@ -21,8 +21,9 @@ else
   mkdir -p "$DEST"
 fi
 
-if [ -n "${GIT_CSM_VERSION:-}" ]; then
-  BASE="https://github.com/$REPO/releases/download/$GIT_CSM_VERSION"
+VERSION="${GIT_SCM_VERSION:-${GIT_CSM_VERSION:-}}"
+if [ -n "$VERSION" ]; then
+  BASE="https://github.com/$REPO/releases/download/$VERSION"
 else
   BASE="https://github.com/$REPO/releases/latest/download"
 fi
@@ -32,7 +33,7 @@ if ! command -v git >/dev/null 2>&1; then
     echo "Installing git..."
     pkg install -y git
   else
-    echo "warning: git is not installed; git-csm needs it at runtime" >&2
+    echo "warning: git is not installed; git-scm needs it at runtime" >&2
   fi
 fi
 
@@ -60,4 +61,8 @@ case ":$PATH:" in
   *":$DEST:"*) ;;
   *) echo "note: add $DEST to your PATH" ;;
 esac
-echo "Run: $BIN   (then open http://localhost:8080)"
+echo "Then run:"
+echo ""
+echo "$BIN"
+echo ""
+echo "and open http://localhost:8080 in your browser. Install it to the home screen from the browser menu to use it as an app."

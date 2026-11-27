@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/git-csm/server/internal/git"
+	"github.com/harshG775/git-scm/server/internal/git"
 )
 
 func gitEnv(t *testing.T) *env {

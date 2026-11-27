@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { migrateStorageKey } from "./storage-migration";
 
 export type SidebarPanel = "explorer" | "search" | "git" | "branches";
 export type TabKind = "file" | "diff" | "graph";
@@ -23,6 +24,8 @@ export interface Tab {
 export const GRAPH_ID = "view:graph";
 
 export const diffId = (path: string, staged: boolean) => `diff:${staged ? "s" : "w"}:${path}`;
+
+migrateStorageKey("git-scm:workspace", "git-csm:workspace");
 
 // The active tab lives in the URL (`?file=` or `?diff=`), not here.
 interface WorkspaceState {
@@ -141,7 +144,7 @@ export const useWorkspace = create<WorkspaceState>()(
             closeDrawer: () => set({ drawerOpen: false }),
         }),
         {
-            name: "git-csm:workspace",
+            name: "git-scm:workspace",
             version: 2,
             // v1 stored tabs as `{ path }` only.
             migrate: (persisted, version) => {

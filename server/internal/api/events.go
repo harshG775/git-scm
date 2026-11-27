@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/git-csm/server/internal/pathguard"
+	"github.com/harshG775/git-scm/server/internal/pathguard"
 )
 
 const (

@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/git-csm/server/internal/config"
-	"github.com/git-csm/server/internal/watch"
+	"github.com/harshG775/git-scm/server/internal/config"
+	"github.com/harshG775/git-scm/server/internal/watch"
 )
 
 type env struct {
@@ -240,7 +240,7 @@ func TestFileCreateAndGuards(t *testing.T) {
 	// no leftover temp files
 	des, _ := os.ReadDir(filepath.Join(e.root, "src"))
 	for _, d := range des {
-		if strings.HasPrefix(d.Name(), ".git-csm-") {
+		if strings.HasPrefix(d.Name(), ".git-scm-") {
 			t.Errorf("leftover temp file %s", d.Name())
 		}
 	}

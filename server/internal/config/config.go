@@ -1,4 +1,4 @@
-// Package config persists user settings and recent projects under ~/.git-csm.
+// Package config persists user settings and recent projects under ~/.git-scm.
 package config
 
 import (
@@ -31,8 +31,12 @@ type Store struct {
 	data file
 }
 
-// DefaultDir returns $GIT_CSM_HOME, or ~/.git-csm.
+// DefaultDir returns $GIT_SCM_HOME, or ~/.git-scm. It also honors the former environment
+// variable and migrates the former default directory when the new one does not exist.
 func DefaultDir() (string, error) {
+	if d := os.Getenv("GIT_SCM_HOME"); d != "" {
+		return d, nil
+	}
 	if d := os.Getenv("GIT_CSM_HOME"); d != "" {
 		return d, nil
 	}
@@ -40,7 +44,21 @@ func DefaultDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".git-csm"), nil
+	dir := filepath.Join(home, ".git-scm")
+	if _, err := os.Stat(dir); err == nil {
+		return dir, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+	legacyDir := filepath.Join(home, ".git-csm")
+	if _, err := os.Stat(legacyDir); err == nil {
+		if err := os.Rename(legacyDir, dir); err != nil {
+			return "", fmt.Errorf("migrate config directory %s: %w", legacyDir, err)
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+	return dir, nil
 }
 
 // Open loads dir/config.json, creating dir (and an empty config) on first run.

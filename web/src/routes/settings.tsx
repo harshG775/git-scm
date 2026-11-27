@@ -32,7 +32,7 @@ function SettingsPage() {
                         <h2 id="app-heading" className="text-lg font-semibold">
                             App
                         </h2>
-                        <p className="text-sm text-muted-foreground">How git csm looks and behaves.</p>
+                        <p className="text-sm text-muted-foreground">How git scm looks and behaves.</p>
                     </div>
                     <AppSettings />
                 </section>

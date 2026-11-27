@@ -7,7 +7,7 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-const API = process.env.GIT_CSM_API ?? "http://127.0.0.1:8080";
+const API = process.env.GIT_SCM_API ?? process.env.GIT_CSM_API ?? "http://127.0.0.1:8080";
 const apiOrigin = new URL(API).origin;
 
 const config = defineConfig({
@@ -24,7 +24,7 @@ const config = defineConfig({
     },
     resolve: { tsconfigPaths: true },
     server: {
-        // Forward API calls to the Go server during `vp dev`. GIT_CSM_API overrides the target.
+        // Forward API calls to the Go server during `vp dev`. GIT_SCM_API overrides the target.
         proxy: {
             "/api": {
                 target: API,
@@ -62,8 +62,8 @@ const config = defineConfig({
         VitePWA({
             registerType: "autoUpdate",
             manifest: {
-                name: "git csm",
-                short_name: "git csm",
+                name: "git scm",
+                short_name: "git scm",
                 description: "Source control and code browsing, built for your phone.",
                 // A manifest has one color for both themes; the splash screen uses the dark background.
                 theme_color: "#0d1113",

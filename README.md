@@ -1,4 +1,4 @@
-# git csm
+# git scm
 
 Mobile-first PWA for source control and code browsing. A single Go binary serves the app (frontend embedded) on localhost; built to run in Termux.
 
@@ -25,7 +25,7 @@ This downloads the latest release binary for your architecture, verifies its SHA
 Then run:
 
 ```sh
-git-csm
+git-scm
 ```
 
 and open <http://localhost:8080> in your browser. Install it to the home screen from the browser menu to use it as an app.
@@ -41,19 +41,19 @@ Options:
 ## Update
 
 ```sh
-git-csm update
+git-scm update
 ```
 
-This re-runs the install script and replaces the binary with the latest release. Restart `git-csm` afterwards. Running the curl install command again does the same thing.
+This re-runs the install script and replaces the binary with the latest release. Restart `git-scm` afterwards. Running the curl install command again does the same thing.
 
-Pin a version: `GIT_CSM_VERSION=v0.1.0 sh install.sh`.
+Pin a version: `GIT_SCM_VERSION=v0.1.0 sh install.sh`.
 
 ## Build from source
 
 Needs Go and [Vite+](https://viteplus.dev) (`vp`).
 
 ```sh
-make build   # builds the web app, embeds it, writes bin/git-csm
+make build   # builds the web app, embeds it, writes bin/git-scm
 make run     # rebuild the frontend and run the server on :8080
 ```
 

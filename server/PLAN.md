@@ -4,7 +4,7 @@ Go stdlib, `net/http`. Shells out to the `git` binary. Embeds the web build from
 API shape: see [../PLAN.md](../PLAN.md).
 
 ## Decisions
-- Config + recent projects in `~/.git-csm/config.json`, created on first run.
+- Config + recent projects in `~/.git-scm/config.json`, migrated from the former `~/.git-csm` path when needed.
 - Path guard: one function resolves every client path (incl. symlinks) and rejects anything outside the project root.
 - Git status: `git status --porcelain=v2 -z --branch`. VS Code's `extensions/git` (MIT) is a behavior reference.
 - ETag = content hash (not mtime). `PUT` needs `If-Match`: 428 if missing, 412 if stale. Saves are serialized and the

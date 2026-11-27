@@ -13,12 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/git-csm/server/internal/api"
-	"github.com/git-csm/server/internal/config"
-	"github.com/git-csm/server/internal/execpath"
-	"github.com/git-csm/server/internal/guard"
-	"github.com/git-csm/server/internal/ui"
-	"github.com/git-csm/server/internal/watch"
+	"github.com/harshG775/git-scm/server/internal/api"
+	"github.com/harshG775/git-scm/server/internal/config"
+	"github.com/harshG775/git-scm/server/internal/execpath"
+	"github.com/harshG775/git-scm/server/internal/guard"
+	"github.com/harshG775/git-scm/server/internal/ui"
+	"github.com/harshG775/git-scm/server/internal/watch"
 )
 
 const installURL = "https://raw.githubusercontent.com/harshG775/git-scm/main/install.sh"

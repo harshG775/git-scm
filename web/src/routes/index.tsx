@@ -40,7 +40,7 @@ function Welcome() {
         <main className="mx-auto flex min-h-dvh max-w-xl flex-col gap-8 px-4 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
             <header className="flex items-start justify-between gap-2">
                 <div>
-                    <h1 className="text-2xl font-semibold">git csm</h1>
+                    <h1 className="text-2xl font-semibold">git scm</h1>
                     <p className="text-sm text-muted-foreground">
                         Source control and code browsing, built for your phone.
                     </p>

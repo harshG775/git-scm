@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/git-csm/server/internal/execpath"
-	"github.com/git-csm/server/internal/pathguard"
+	"github.com/harshG775/git-scm/server/internal/execpath"
+	"github.com/harshG775/git-scm/server/internal/pathguard"
 )
 
 // Event is sent to clients as an SSE message: name is the SSE event, data is JSON-encoded.

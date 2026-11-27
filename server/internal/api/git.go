@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/git-csm/server/internal/config"
-	"github.com/git-csm/server/internal/git"
-	"github.com/git-csm/server/internal/pathguard"
+	"github.com/harshG775/git-scm/server/internal/config"
+	"github.com/harshG775/git-scm/server/internal/git"
+	"github.com/harshG775/git-scm/server/internal/pathguard"
 )
 
 const (

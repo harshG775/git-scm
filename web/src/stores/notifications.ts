@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { migrateStorageKey } from "./storage-migration";
 
 export type NotificationType = "success" | "error" | "info";
 
@@ -32,6 +33,7 @@ const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.r
 
 // Kept in localStorage like the other per-device UI state: it is a log of what happened on this
 // device, so it should survive a reload but does not need to follow the user to another one.
+migrateStorageKey("git-scm.notifications", "git-csm.notifications");
 export const useNotifications = create<NotificationState>()(
     persist(
         (set) => ({
@@ -51,7 +53,7 @@ export const useNotifications = create<NotificationState>()(
             toggleDoNotDisturb: () => set((s) => ({ doNotDisturb: !s.doNotDisturb })),
         }),
         {
-            name: "git-csm.notifications",
+            name: "git-scm.notifications",
             version: 1,
             partialize: ({ items, doNotDisturb }) => ({ items, doNotDisturb }),
         },

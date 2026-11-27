@@ -15,9 +15,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/git-csm/server/internal/config"
-	"github.com/git-csm/server/internal/pathguard"
-	"github.com/git-csm/server/internal/watch"
+	"github.com/harshG775/git-scm/server/internal/config"
+	"github.com/harshG775/git-scm/server/internal/pathguard"
+	"github.com/harshG775/git-scm/server/internal/watch"
 )
 
 const maxFileSize = 5 << 20 // 5 MiB
@@ -342,7 +342,7 @@ func (a *API) writeFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write to a temp file and rename so readers never see a partial file.
-	tmp, err := os.CreateTemp(filepath.Dir(abs), ".git-csm-*")
+	tmp, err := os.CreateTemp(filepath.Dir(abs), ".git-scm-*")
 	if err != nil {
 		failFS(w, err)
 		return

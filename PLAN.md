@@ -1,4 +1,4 @@
-# git csm
+# git scm
 
 Mobile-first PWA for source control + code browsing. Go server in Termux serves the app over localhost HTTPS.
 UX modeled on VS Code (Welcome tab, Explorer, file tabs, built-in SCM view).

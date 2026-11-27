@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,6 +29,34 @@ func TestPersistAndOrder(t *testing.T) {
 	}
 	if _, ok := s2.Get(pb.ID); !ok {
 		t.Error("Get failed after reload")
+	}
+}
+
+func TestDefaultDirMigratesLegacyDirectory(t *testing.T) {
+	home := t.TempDir()
+	legacyDir := filepath.Join(home, ".git-csm")
+	if err := os.MkdirAll(legacyDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(legacyDir, "config.json"), []byte(`{"projects":[]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+	t.Setenv("GIT_SCM_HOME", "")
+	t.Setenv("GIT_CSM_HOME", "")
+
+	dir, err := DefaultDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(home, ".git-scm"); dir != want {
+		t.Fatalf("DefaultDir() = %q, want %q", dir, want)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "config.json")); err != nil {
+		t.Fatalf("migrated config missing: %v", err)
+	}
+	if _, err := os.Stat(legacyDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("legacy directory still exists: %v", err)
 	}
 }
 
