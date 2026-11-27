@@ -1,5 +1,3 @@
-// this is scratchpad for building and testing ui
-// this mobile only ui
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {

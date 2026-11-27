@@ -1,5 +1,17 @@
 import { useState } from "react";
-import { Archive, Check, ChevronDown, Ellipsis, GitCommitVertical, Minus, Plus, Undo2 } from "lucide-react";
+import {
+    Archive,
+    ArchiveRestore,
+    Check,
+    ChevronDown,
+    Ellipsis,
+    GitCommitVertical,
+    Minus,
+    Play,
+    Plus,
+    Trash2,
+    Undo2,
+} from "lucide-react";
 import { Button, buttonVariants } from "#/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
 import {
@@ -17,7 +29,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip
 import { cn } from "#/lib/utils";
 import { TabHeader } from "./TabHeader";
 
-type ActionTab = "commit" | "stash";
 type ChangesView = "list" | "tree";
 type ChangeFile = { path: string; status: string; added?: number; removed?: number };
 
@@ -41,7 +52,6 @@ const nodePaths = (node: TreeNode<ChangeFile>): string[] =>
     node.kind === "file" ? (node.entry?.data ? [node.entry.data.path] : []) : node.children.flatMap(nodePaths);
 
 export function ChangesTab() {
-    const [activeAction, setActiveAction] = useState<ActionTab>("commit");
     const [changesView, setChangesView] = useState<ChangesView>("list");
     const [commitMessage, setCommitMessage] = useState("");
     const [stashMessage, setStashMessage] = useState("");
@@ -71,14 +81,38 @@ export function ChangesTab() {
         setDiscarding(null);
         setNotice("Discard is a UI preview. No files were changed on disk.");
     };
+    const [stashes, setStashes] = useState(STASHES);
+    const [droppingStash, setDroppingStash] = useState<string | null>(null);
+    const [stashNotice, setStashNotice] = useState("");
+    // preview only: apply keeps the stash, pop and drop remove it
+    const applyStash = (message: string) => setStashNotice(`Applied "${message}". UI preview, no files were changed.`);
+    const popStash = (message: string) => {
+        setStashes((current) => current.filter((stash) => stash.message !== message));
+        setStashNotice(`Popped "${message}". UI preview, no files were changed.`);
+    };
+    const confirmDrop = () => {
+        const message = droppingStash;
+        setDroppingStash(null);
+        if (!message) return;
+        setStashes((current) => current.filter((stash) => stash.message !== message));
+        setStashNotice(`Dropped "${message}". UI preview, nothing was deleted.`);
+    };
     const discardingUntracked = changed.some(({ path, status }) => discarding?.includes(path) && status === "U");
 
-    const submitPreview = (event: React.FormEvent<HTMLFormElement>) => {
+    const submitCommit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        setNotice(
-            activeAction === "commit"
-                ? "Commit is a UI preview. No changes were committed."
-                : "Stash is a UI preview. No files were stashed.",
+        setNotice("Commit is a UI preview. No changes were committed.");
+    };
+
+    // preview only: the stashed files leave the Changes list and a stash row appears
+    const submitStash = (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const message = stashMessage.trim() || "WIP on main";
+        setChanged((current) => current.filter(({ status }) => status === "U" && !includeUntracked));
+        setStashes((current) => [{ message, branch: "main", age: "Just now" }, ...current]);
+        setStashMessage("");
+        setStashNotice(
+            `Stashed ${stashFileCount} ${stashFileCount === 1 ? "file" : "files"}. UI preview, nothing was saved.`,
         );
     };
 
@@ -92,9 +126,7 @@ export function ChangesTab() {
             title: "Staged Changes",
             files: staged,
             // per-row and per-section buttons
-            rowActions: (paths: string[]) => (
-                <RowButton label="Unstage" icon={Minus} onClick={() => unstage(paths)} />
-            ),
+            rowActions: (paths: string[]) => <RowButton label="Unstage" icon={Minus} onClick={() => unstage(paths)} />,
             headerActions: (
                 <RowButton label="Unstage all" icon={Minus} onClick={() => unstage(staged.map((f) => f.path))} />
             ),
@@ -155,83 +187,104 @@ export function ChangesTab() {
                 }
             />
             <section className="mx-2 my-2 border border-sidebar-border p-3">
-                <div role="group" aria-label="Change actions" className="mb-3 flex gap-2">
-                    {(["commit", "stash"] as const).map((action) => (
-                        <Button
-                            key={action}
-                            type="button"
-                            aria-pressed={activeAction === action}
-                            onClick={() => {
-                                setActiveAction(action);
-                                setNotice("");
-                            }}
-                            variant={activeAction === action ? "secondary" : "ghost"}
-                        >
-                            {action === "commit" ? (
-                                <GitCommitVertical className="size-4" aria-hidden="true" />
-                            ) : (
-                                <Archive className="size-4" aria-hidden="true" />
-                            )}
-                            <span className="capitalize">{action}</span>
-                        </Button>
-                    ))}
-                </div>
-
-                {activeAction === "commit" ? (
-                    <form onSubmit={submitPreview} className="space-y-3">
-                        <div className="flex flex-wrap gap-1.5">
-                            {COMMIT_TYPES.map((type) => (
-                                <Button
-                                    key={type}
-                                    type="button"
-                                    onClick={() => addCommitType(type)}
-                                    variant="outline"
-                                    size="sm"
-                                >
-                                    {type}
-                                </Button>
-                            ))}
-                        </div>
-                        <label className="sr-only" htmlFor="commit-message">
-                            Commit message
-                        </label>
-                        <Textarea
-                            id="commit-message"
-                            value={commitMessage}
-                            onChange={(event) => setCommitMessage(event.target.value)}
-                            placeholder="Commit message"
-                            rows={2}
-                        />
-                        <Button
-                            type="submit"
-                            disabled={!commitMessage.trim() || staged.length === 0}
-                            className="w-full"
-                        >
-                            <GitCommitVertical className="size-4" aria-hidden="true" />
-                            Commit {staged.length} {staged.length === 1 ? "file" : "files"}
-                        </Button>
-                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                            <label className="flex min-h-8 items-center gap-2 text-muted-foreground">
-                                <input
-                                    type="checkbox"
-                                    checked={amendLastCommit}
-                                    onChange={(event) => setAmendLastCommit(event.target.checked)}
-                                    className="size-4 accent-sidebar-primary"
-                                />
-                                Amend last commit
-                            </label>
+                <form onSubmit={submitCommit} className="space-y-3">
+                    <div className="flex flex-wrap gap-1.5">
+                        {COMMIT_TYPES.map((type) => (
                             <Button
+                                key={type}
                                 type="button"
-                                onClick={() => setNotice("Undo last commit is a UI preview. No changes were made.")}
-                                variant="link"
-                                className="text-destructive"
+                                onClick={() => addCommitType(type)}
+                                variant="outline"
+                                size="sm"
                             >
-                                Undo last commit
+                                {type}
                             </Button>
-                        </div>
-                    </form>
-                ) : (
-                    <form onSubmit={submitPreview} className="space-y-3">
+                        ))}
+                    </div>
+                    <label className="sr-only" htmlFor="commit-message">
+                        Commit message
+                    </label>
+                    <Textarea
+                        id="commit-message"
+                        value={commitMessage}
+                        onChange={(event) => setCommitMessage(event.target.value)}
+                        placeholder="Commit message"
+                        rows={2}
+                    />
+                    <Button type="submit" disabled={!commitMessage.trim() || staged.length === 0} className="w-full">
+                        <GitCommitVertical className="size-4" aria-hidden="true" />
+                        Commit {staged.length} {staged.length === 1 ? "file" : "files"}
+                    </Button>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <label className="flex min-h-8 items-center gap-2 text-muted-foreground">
+                            <input
+                                type="checkbox"
+                                checked={amendLastCommit}
+                                onChange={(event) => setAmendLastCommit(event.target.checked)}
+                                className="size-4 accent-sidebar-primary"
+                            />
+                            Amend last commit
+                        </label>
+                        <Button
+                            type="button"
+                            onClick={() => setNotice("Undo last commit is a UI preview. No changes were made.")}
+                            variant="link"
+                            className="text-destructive"
+                        >
+                            Undo last commit
+                        </Button>
+                    </div>
+                </form>
+
+                {notice && (
+                    <p role="status" className="mt-3 text-xs text-muted-foreground">
+                        {notice}
+                    </p>
+                )}
+            </section>
+
+            {sections.map(({ title, files, rowActions, headerActions }) => (
+                <Collapsible key={title} defaultOpen className="border-b border-sidebar-border">
+                    <div className="flex items-center pr-2">
+                        <CollapsibleTrigger className="group flex min-h-10 min-w-0 flex-1 items-center gap-1 px-2 text-left text-sm font-medium">
+                            <ChevronDown
+                                className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
+                                aria-hidden="true"
+                            />
+                            <span>{title}</span>
+                            <span className="ml-auto text-xs text-muted-foreground">{files.length}</span>
+                        </CollapsibleTrigger>
+                        {files.length > 0 && <div className="ml-2 flex items-center gap-1">{headerActions}</div>}
+                    </div>
+                    <CollapsibleContent>
+                        {files.length === 0 && (
+                            <p className="px-3 py-2 text-sm text-muted-foreground">
+                                {title === "Staged Changes" ? "No staged changes" : "No changes"}
+                            </p>
+                        )}
+                        <FileTree<ChangeFile>
+                            label={title}
+                            view={changesView}
+                            entries={files.map((file): TreeEntry<ChangeFile> => ({ path: file.path, data: file }))}
+                            defaultOpen
+                            showFolderCount
+                            renderMeta={({ entry }) => entry?.data && <ChangeMeta file={entry.data} />}
+                            renderActions={(node) => rowActions(nodePaths(node))}
+                        />
+                    </CollapsibleContent>
+                </Collapsible>
+            ))}
+            <Collapsible className="border-b border-sidebar-border">
+                <CollapsibleTrigger className="group flex min-h-10 w-full items-center gap-1 px-2 text-left text-sm font-medium">
+                    <ChevronDown
+                        className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
+                        aria-hidden="true"
+                    />
+                    <span>Stashes</span>
+                    <span className="ml-auto text-xs text-muted-foreground">{stashes.length}</span>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="px-3 py-2">
+                    <form onSubmit={submitStash} className="space-y-3 border-b pb-3">
                         <label className="sr-only" htmlFor="stash-message">
                             Stash message
                         </label>
@@ -260,64 +313,48 @@ export function ChangesTab() {
                             </label>
                         </div>
                     </form>
-                )}
-
-                {notice && (
-                    <p role="status" className="mt-3 text-xs text-muted-foreground">
-                        {notice}
-                    </p>
-                )}
-            </section>
-
-            {sections
-                .filter(({ files }) => files.length > 0)
-                .map(({ title, files, rowActions, headerActions }) => (
-                    <Collapsible key={title} defaultOpen className="border-b border-sidebar-border">
-                        <div className="flex items-center pr-2">
-                            <CollapsibleTrigger className="group flex min-h-10 min-w-0 flex-1 items-center gap-1 px-2 text-left text-sm font-medium">
-                                <ChevronDown
-                                    className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
-                                    aria-hidden="true"
-                                />
-                                <span>{title}</span>
-                                <span className="ml-auto text-xs text-muted-foreground">{files.length}</span>
-                            </CollapsibleTrigger>
-                            <div className="ml-2 flex items-center gap-1">{headerActions}</div>
-                        </div>
-                        <CollapsibleContent>
-                            <FileTree<ChangeFile>
-                                label={title}
-                                view={changesView}
-                                entries={files.map((file): TreeEntry<ChangeFile> => ({ path: file.path, data: file }))}
-                                defaultOpen
-                                showFolderCount
-                                renderMeta={({ entry }) => entry?.data && <ChangeMeta file={entry.data} />}
-                                renderActions={(node) => rowActions(nodePaths(node))}
-                            />
-                        </CollapsibleContent>
-                    </Collapsible>
-                ))}
-            <Collapsible className="border-b border-sidebar-border">
-                <CollapsibleTrigger className="group flex min-h-10 w-full items-center gap-1 px-2 text-left text-sm font-medium">
-                    <ChevronDown
-                        className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
-                        aria-hidden="true"
-                    />
-                    <span>Stashes</span>
-                    <span className="ml-auto text-xs text-muted-foreground">{STASHES.length}</span>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="px-3 py-2">
-                    {STASHES.map(({ message, branch, age }) => (
+                    {stashes.length === 0 && <p className="py-2 text-sm text-muted-foreground">No stashes</p>}
+                    {stashes.map(({ message, branch, age }) => (
                         <div key={message} className="flex items-start gap-2 border-b py-2 last:border-b-0">
                             <Archive className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                                 <div className="text-sm">{message}</div>
                                 <div className="text-xs text-muted-foreground">
                                     {branch} · {age}
                                 </div>
+                                <div className="mt-2 flex gap-1.5">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => applyStash(message)}
+                                    >
+                                        <Play aria-hidden="true" />
+                                        Apply
+                                    </Button>
+                                    <Button type="button" variant="outline" size="sm" onClick={() => popStash(message)}>
+                                        <ArchiveRestore aria-hidden="true" />
+                                        Pop
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-destructive"
+                                        onClick={() => setDroppingStash(message)}
+                                    >
+                                        <Trash2 aria-hidden="true" />
+                                        Drop
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     ))}
+                    {stashNotice && (
+                        <p role="status" className="pt-2 text-xs text-muted-foreground">
+                            {stashNotice}
+                        </p>
+                    )}
                 </CollapsibleContent>
             </Collapsible>
             <NativeDialog
@@ -336,6 +373,21 @@ export function ChangesTab() {
                     </Button>
                     <Button type="button" variant="destructive" onClick={confirmDiscard}>
                         Discard {discarding?.length} {discarding?.length === 1 ? "file" : "files"}
+                    </Button>
+                </div>
+            </NativeDialog>
+            <NativeDialog
+                open={droppingStash !== null}
+                onOpenChange={(open) => !open && setDroppingStash(null)}
+                title="Drop stash?"
+                description={`"${droppingStash ?? ""}" will be deleted. This cannot be undone.`}
+            >
+                <div className="flex justify-end gap-2 px-5 py-4">
+                    <Button type="button" variant="outline" onClick={() => setDroppingStash(null)}>
+                        Cancel
+                    </Button>
+                    <Button type="button" variant="destructive" onClick={confirmDrop}>
+                        Drop stash
                     </Button>
                 </div>
             </NativeDialog>
