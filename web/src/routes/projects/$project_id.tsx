@@ -3,12 +3,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
-    Archive,
     ChevronsUpDown,
     FileDiff,
     Folder,
     GitBranch,
-    GitPullRequest,
     PanelLeftOpen,
     PanelLeftClose,
     type LucideIcon,
@@ -27,8 +25,6 @@ import { cn } from "#/lib/utils";
 import { BranchesTab } from "./-component/tabs/BranchesTab";
 import { ChangesTab } from "./-component/tabs/ChangesTab";
 import { FilesTab } from "./-component/tabs/FilesTab";
-import { PullRequestsTab } from "./-component/tabs/PullRequestsTab";
-import { StashTab } from "./-component/tabs/StashTab";
 import { FileViewer } from "./-component/FileViewer";
 import { SyncButton, SyncError, useSync } from "./-component/sync";
 import { TabStrip, type EditorTab } from "./-component/TabStrip";
@@ -37,15 +33,13 @@ export const Route = createFileRoute("/projects/$project_id")({
     component: RouteComponent,
 });
 
-type NavTab = "files" | "changes" | "branches" | "stash" | "prs";
+type NavTab = "files" | "changes" | "branches";
 
 // mock counts, replace with real data
 const NAV_ITEMS: { id: NavTab; label: string; icon: LucideIcon; count?: number }[] = [
     { id: "files", label: "Files", icon: Folder },
     { id: "changes", label: "Changes", icon: FileDiff, count: 6 },
     { id: "branches", label: "Branches", icon: GitBranch },
-    { id: "stash", label: "Stash", icon: Archive, count: 2 },
-    { id: "prs", label: "PRs", icon: GitPullRequest, count: 3 },
 ];
 
 // mock terminal session, replace with a real pty
@@ -283,15 +277,9 @@ function Workspace({ project_id }: { project_id: string }) {
                         <Activity mode={mode("branches")}>
                             <BranchesTab onOpenGraph={openGraph} />
                         </Activity>
-                        <Activity mode={mode("stash")}>
-                            <StashTab />
-                        </Activity>
-                        <Activity mode={mode("prs")}>
-                            <PullRequestsTab />
-                        </Activity>
                     </ErrorBoundary>
                 </section>
-                <nav className="sticky bottom-0 grid grid-cols-5 border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)]">
+                <nav className="sticky bottom-0 grid grid-cols-3 border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)]">
                     {NAV_ITEMS.map(({ id, label, icon: Icon, count }) => {
                         const isActive = id === active;
                         return (

@@ -29,7 +29,10 @@ const CHANGED_FILES: ChangeFile[] = [
     { path: "notes.md", status: "U" },
 ];
 const COMMIT_TYPES = ["feat", "fix", "docs", "refactor", "test", "chore"];
-const SAMPLE_STASHES = ["WIP on main: update mobile navigation", "Save editor layout experiment"];
+const STASHES = [
+    { message: "WIP on main: update mobile navigation", branch: "main", age: "10 minutes ago" },
+    { message: "Save editor layout experiment", branch: "feature/editor-layout", age: "Yesterday" },
+];
 
 export function ChangesTab() {
     const [activeAction, setActiveAction] = useState<ActionTab>("commit");
@@ -38,7 +41,6 @@ export function ChangesTab() {
     const [stashMessage, setStashMessage] = useState("");
     const [amendLastCommit, setAmendLastCommit] = useState(false);
     const [includeUntracked, setIncludeUntracked] = useState(true);
-    const [showStashes, setShowStashes] = useState(false);
     const [notice, setNotice] = useState("");
     const stashFileCount = CHANGED_FILES.filter(({ status }) => status !== "U" || includeUntracked).length;
 
@@ -204,21 +206,6 @@ export function ChangesTab() {
                                 Include untracked
                             </label>
                         </div>
-                        <Button
-                            type="button"
-                            onClick={() => setShowStashes((current) => !current)}
-                            aria-expanded={showStashes}
-                            variant="link"
-                        >
-                            {showStashes ? "Hide stashes" : "View stashes"}
-                        </Button>
-                        {showStashes && (
-                            <ul className="space-y-1 border-t border-sidebar-border pt-2 text-xs text-muted-foreground">
-                                {SAMPLE_STASHES.map((stash) => (
-                                    <li key={stash}>{stash}</li>
-                                ))}
-                            </ul>
-                        )}
                     </form>
                 )}
 
@@ -245,6 +232,29 @@ export function ChangesTab() {
                     <CollapsibleContent>{renderFiles(title, files)}</CollapsibleContent>
                 </Collapsible>
             ))}
+            <Collapsible className="border-b border-sidebar-border">
+                <CollapsibleTrigger className="group flex min-h-10 w-full items-center gap-1 px-2 text-left text-sm font-medium">
+                    <ChevronDown
+                        className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
+                        aria-hidden="true"
+                    />
+                    <span>Stashes</span>
+                    <span className="ml-auto text-xs text-muted-foreground">{STASHES.length}</span>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="px-3 py-2">
+                    {STASHES.map(({ message, branch, age }) => (
+                        <div key={message} className="flex items-start gap-2 border-b py-2 last:border-b-0">
+                            <Archive className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                            <div className="min-w-0">
+                                <div className="text-sm">{message}</div>
+                                <div className="text-xs text-muted-foreground">
+                                    {branch} · {age}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </CollapsibleContent>
+            </Collapsible>
         </>
     );
 }
