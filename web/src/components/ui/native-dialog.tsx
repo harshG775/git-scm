@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { Button } from "#/components/ui/button";
 import { cn } from "cn";
 
-interface NativeDialogProps {
+export interface NativeDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     title: React.ReactNode;
@@ -61,7 +61,7 @@ function NativeDialog({
             )}
         >
             <div data-slot="dialog-header" className="flex items-start justify-between gap-4 border-b px-5 py-4">
-                <div>
+                <div className="min-w-0">
                     <h2 id={titleId} data-slot="dialog-title" className="font-semibold">
                         {title}
                     </h2>

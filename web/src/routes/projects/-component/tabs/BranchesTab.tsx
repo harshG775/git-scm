@@ -19,17 +19,11 @@ import {
     Trash2,
     type LucideIcon,
 } from "lucide-react";
-import { buttonVariants } from "#/components/ui/button";
+import { Button } from "#/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "#/components/ui/dropdown-menu";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "#/components/ui/empty";
 import { Input } from "#/components/ui/input";
+import { ResponsiveDialog } from "#/components/ui/responsive-dialog";
 import { cn } from "#/lib/utils";
 import { TabHeader, TooltipIconButton } from "./TabHeader";
 
@@ -63,20 +57,21 @@ const STATUS_STYLES: Record<RefStatus, string> = {
     "remote only": "bg-muted text-muted-foreground",
 };
 
-type RefAction = { label: string; icon: LucideIcon; danger?: boolean };
+type ActionId = "checkout" | "merge" | "pull" | "push" | "push-tag" | "create" | "rename" | "copy" | "delete";
+type RefAction = { id: ActionId; label: string; icon: LucideIcon; danger?: boolean };
 
-// options in each row's ... menu; destructive ones sit below a separator
-const checkout: RefAction = { label: "Checkout", icon: Check };
-const mergeInto: RefAction = { label: "Merge into current", icon: GitMerge };
-const createFrom: RefAction = { label: "Create branch from here", icon: GitBranchPlus };
-const copyName: RefAction = { label: "Copy name", icon: Copy };
-const rename: RefAction = { label: "Rename", icon: Pencil };
-const remove = (label: string): RefAction => ({ label, icon: Trash2, danger: true });
+// options in a row's bottom sheet; destructive ones sit below a divider
+const checkout: RefAction = { id: "checkout", label: "Checkout", icon: Check };
+const mergeInto: RefAction = { id: "merge", label: "Merge into current", icon: GitMerge };
+const createFrom: RefAction = { id: "create", label: "Create branch from here", icon: GitBranchPlus };
+const copyName: RefAction = { id: "copy", label: "Copy name", icon: Copy };
+const rename: RefAction = { id: "rename", label: "Rename", icon: Pencil };
+const remove = (label: string): RefAction => ({ id: "delete", label, icon: Trash2, danger: true });
 
 const REF_ACTIONS: Record<RefKind, RefAction[]> = {
     current: [
-        { label: "Pull", icon: ArrowDownToLine },
-        { label: "Push", icon: ArrowUpFromLine },
+        { id: "pull", label: "Pull", icon: ArrowDownToLine },
+        { id: "push", label: "Push", icon: ArrowUpFromLine },
         createFrom,
         rename,
         copyName,
@@ -84,7 +79,13 @@ const REF_ACTIONS: Record<RefKind, RefAction[]> = {
     local: [checkout, mergeInto, createFrom, rename, copyName, remove("Delete branch")],
     merged: [checkout, createFrom, rename, copyName, remove("Delete branch")],
     remote: [checkout, mergeInto, createFrom, copyName, remove("Delete remote branch")],
-    tag: [checkout, createFrom, { label: "Push tag", icon: ArrowUpFromLine }, copyName, remove("Delete tag")],
+    tag: [
+        checkout,
+        createFrom,
+        { id: "push-tag", label: "Push tag", icon: ArrowUpFromLine },
+        copyName,
+        remove("Delete tag"),
+    ],
 };
 
 const GROUPS: { title: string; empty: { title: string; description: string }; items: Ref[] }[] = [
@@ -120,11 +121,9 @@ const GROUPS: { title: string; empty: { title: string; description: string }; it
     },
 ];
 
-function RefRow({ item, onAction }: { item: Ref; onAction: (action: RefAction, name: string) => void }) {
+function RefRow({ item, onMenu }: { item: Ref; onMenu: (item: Ref) => void }) {
     const { name, kind, subject, status, ahead, behind, hash } = item;
     const { icon: Icon, className } = REF_ICONS[kind];
-    const actions = REF_ACTIONS[kind];
-    const firstDanger = actions.findIndex((action) => action.danger);
     return (
         <div className="flex min-h-12 items-center gap-2 border-b py-1.5 text-sm last:border-b-0">
             <Icon className={cn("size-4 shrink-0", className)} aria-hidden="true" />
@@ -160,29 +159,150 @@ function RefRow({ item, onAction }: { item: Ref; onAction: (action: RefAction, n
                 </span>
             )}
             {hash && <span className="shrink-0 font-mono text-xs text-muted-foreground">{hash}</span>}
-            <DropdownMenu>
-                <DropdownMenuTrigger
-                    className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
-                    aria-label={`Options for ${name}`}
-                >
-                    <Ellipsis aria-hidden="true" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-auto min-w-48">
-                    {actions.map((action, index) => (
-                        <Fragment key={action.label}>
-                            {index === firstDanger && <DropdownMenuSeparator />}
-                            <DropdownMenuItem
-                                variant={action.danger ? "destructive" : "default"}
-                                onClick={() => onAction(action, name)}
-                            >
-                                <action.icon aria-hidden="true" />
-                                {action.label}
-                            </DropdownMenuItem>
-                        </Fragment>
-                    ))}
-                </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Options for ${name}`}
+                onClick={() => onMenu(item)}
+            >
+                <Ellipsis aria-hidden="true" />
+            </Button>
         </div>
+    );
+}
+
+// a row's options: a bottom sheet on the phone layout, a dialog on the desktop layout
+function RefMenu({
+    item,
+    open,
+    onOpenChange,
+    onAction,
+}: {
+    item: Ref | null;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onAction: (id: ActionId) => void;
+}) {
+    const actions = item ? REF_ACTIONS[item.kind] : [];
+    const firstDanger = actions.findIndex((action) => action.danger);
+    return (
+        <ResponsiveDialog
+            open={open}
+            onOpenChange={onOpenChange}
+            title={<span className="block truncate font-mono">{item?.name}</span>}
+            description={<span className="block truncate">{item?.subject}</span>}
+            closeLabel="Close options"
+        >
+            <div className="flex flex-col p-2">
+                {actions.map((action, index) => (
+                    <Fragment key={action.id}>
+                        {index === firstDanger && <div role="separator" className="mx-2 my-1 border-t" />}
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className={cn(
+                                "h-12 justify-start gap-3 px-3 text-base md:h-9 md:text-sm",
+                                action.danger && "text-destructive hover:text-destructive",
+                            )}
+                            onClick={() => onAction(action.id)}
+                        >
+                            <action.icon className="size-5 md:size-4" aria-hidden="true" />
+                            {action.label}
+                        </Button>
+                    </Fragment>
+                ))}
+            </div>
+        </ResponsiveDialog>
+    );
+}
+
+type RefDialogState = { id: "create" | "rename" | "delete"; item: Ref };
+
+// for the actions that need input or a confirmation: a sheet on the phone layout, a dialog on the desktop layout
+function RefDialog({
+    state,
+    onClose,
+    onDone,
+}: {
+    state: RefDialogState | null;
+    onClose: () => void;
+    onDone: (message: string) => void;
+}) {
+    const [value, setValue] = useState("");
+    const [lastState, setLastState] = useState(state);
+    // start each open with a fresh field: the current name for rename, empty for a new branch
+    if (state !== lastState) {
+        setLastState(state);
+        if (state) setValue(state.id === "rename" ? state.item.name : "");
+    }
+    const shown = state ?? lastState;
+    const name = shown?.item.name ?? "";
+    const isTag = shown?.item.kind === "tag";
+    const isRemote = shown?.item.kind === "remote";
+    const noun = isTag ? "tag" : isRemote ? "remote branch" : "branch";
+
+    const title =
+        shown?.id === "create" ? "Create branch" : shown?.id === "rename" ? "Rename branch" : `Delete ${noun}?`;
+    const description =
+        shown?.id === "create"
+            ? `Starts from ${name} and switches to it.`
+            : shown?.id === "rename"
+              ? `Choose a new name for ${name}.`
+              : `${name} will be deleted. This cannot be undone.`;
+    const preview = (verb: string) =>
+        onDone(`${verb} "${shown?.id === "create" ? value.trim() : name}" is a UI preview.`);
+
+    const creating = shown?.id === "create";
+
+    return (
+        <ResponsiveDialog
+            open={state !== null}
+            onOpenChange={(open) => !open && onClose()}
+            title={title}
+            description={description}
+        >
+            {shown?.id === "delete" ? (
+                <div className="flex justify-end gap-2 px-5 py-4">
+                    <Button type="button" variant="outline" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button type="button" variant="destructive" onClick={() => preview("Delete")}>
+                        Delete {noun}
+                    </Button>
+                </div>
+            ) : (
+                <form
+                    className="space-y-4 px-5 py-4"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        preview(creating ? "Create" : "Rename");
+                    }}
+                >
+                    <label className="sr-only" htmlFor="ref-name">
+                        Branch name
+                    </label>
+                    <Input
+                        id="ref-name"
+                        value={value}
+                        onChange={(event) => setValue(event.target.value)}
+                        placeholder="feature/my-change"
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        className="font-mono"
+                    />
+                    <div className="flex justify-end gap-2">
+                        <Button type="button" variant="outline" onClick={onClose}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={!value.trim() || value.trim() === name}>
+                            {creating ? "Create branch" : "Rename"}
+                        </Button>
+                    </div>
+                </form>
+            )}
+        </ResponsiveDialog>
     );
 }
 
@@ -199,8 +319,29 @@ export function BranchesTab({ onOpenGraph }: { onOpenGraph: () => void }) {
         ...group,
         items: group.items.filter(({ name }) => name.toLocaleLowerCase().includes(search)),
     }));
-    const runAction = ({ label }: RefAction, name: string) =>
-        setNotice(`${label} "${name}" is a UI preview. Nothing was changed.`);
+    // one sheet and one dialog for the whole tab; a row's ... button picks which ref they act on
+    const [selected, setSelected] = useState<Ref | null>(null);
+    const [sheetOpen, setSheetOpen] = useState(false);
+    const [dialog, setDialog] = useState<RefDialogState | null>(null);
+    const openMenu = (item: Ref) => {
+        setSelected(item);
+        setSheetOpen(true);
+    };
+    const chooseAction = (id: ActionId) => {
+        if (!selected) return;
+        setSheetOpen(false);
+        if (id === "create" || id === "rename" || id === "delete") {
+            setDialog({ id, item: selected });
+            return;
+        }
+        if (id === "copy") {
+            navigator.clipboard?.writeText(selected.name).catch(() => {});
+            setNotice(`Copied "${selected.name}".`);
+            return;
+        }
+        const label = REF_ACTIONS[selected.kind].find((action) => action.id === id)?.label;
+        setNotice(`${label} "${selected.name}" is a UI preview. Nothing was changed.`);
+    };
 
     return (
         <>
@@ -262,11 +403,20 @@ export function BranchesTab({ onOpenGraph }: { onOpenGraph: () => void }) {
                             </Empty>
                         )}
                         {items.map((item) => (
-                            <RefRow key={item.name} item={item} onAction={runAction} />
+                            <RefRow key={item.name} item={item} onMenu={openMenu} />
                         ))}
                     </CollapsibleContent>
                 </Collapsible>
             ))}
+            <RefMenu item={selected} open={sheetOpen} onOpenChange={setSheetOpen} onAction={chooseAction} />
+            <RefDialog
+                state={dialog}
+                onClose={() => setDialog(null)}
+                onDone={(message) => {
+                    setDialog(null);
+                    setNotice(`${message} Nothing was changed.`);
+                }}
+            />
         </>
     );
 }
