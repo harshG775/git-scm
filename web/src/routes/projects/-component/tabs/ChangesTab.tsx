@@ -26,7 +26,6 @@ import { timeAgo } from "#/lib/time";
 import { useGitAction } from "#/lib/use-git-action";
 import { cn } from "#/lib/utils";
 import { ListRow } from "./ListRow";
-import { NoticeBar } from "./NoticeBar";
 import { Section, SectionCard } from "./Section";
 import { TabHeader, TooltipIconButton } from "./TabHeader";
 
@@ -64,7 +63,7 @@ export function ChangesTab({
     const { data: numstat } = useQuery(gitNumstatOptions(projectId));
     const { data: branches } = useQuery(gitBranchesOptions(projectId));
     const { data: stashList } = useQuery(gitStashesOptions(projectId));
-    const { run, busy, notice, setNotice } = useGitAction(projectId);
+    const { run, busy } = useGitAction(projectId);
 
     const [changesView, setChangesView] = useState<ChangesView>("list");
     const [commitMessage, setCommitMessage] = useState("");
@@ -252,7 +251,6 @@ export function ChangesTab({
     return (
         <>
             {header}
-            <NoticeBar notice={notice} onDismiss={() => setNotice(null)} />
             <section className="mx-3 mb-2 rounded-2xl border bg-card p-3">
                 <form onSubmit={submitCommit} className="space-y-3">
                     <div className="scrollbar-none -mx-3 flex gap-1.5 overflow-x-auto px-3">

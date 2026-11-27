@@ -5,6 +5,7 @@ import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { PanelSnapProvider } from "#/contexts/PanelSnapContext";
+import { Toaster } from "#/components/ui/toast";
 import { TooltipProvider } from "#/components/ui/tooltip";
 
 import "../styles.css";
@@ -17,9 +18,11 @@ function RootComponent() {
     return (
         <>
             <TooltipProvider>
-                <PanelSnapProvider>
-                    <Outlet />
-                </PanelSnapProvider>
+                <Toaster>
+                    <PanelSnapProvider>
+                        <Outlet />
+                    </PanelSnapProvider>
+                </Toaster>
             </TooltipProvider>
             <TanStackDevtools
                 config={{

@@ -26,12 +26,12 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "#/components/u
 import { Input } from "#/components/ui/input";
 import { ResponsiveDialog } from "#/components/ui/responsive-dialog";
 import { Skeleton } from "#/components/ui/skeleton";
+import { toast } from "#/components/ui/toast";
 import { api } from "#/lib/api";
 import { gitBranchesOptions, gitRemotesOptions, gitTagsOptions } from "#/lib/queries";
 import { useGitAction } from "#/lib/use-git-action";
 import { cn } from "#/lib/utils";
 import { ListRow } from "./ListRow";
-import { NoticeBar } from "./NoticeBar";
 import { SearchField } from "./SearchField";
 import { Section, SectionCard } from "./Section";
 import { TabHeader, TooltipIconButton } from "./TabHeader";
@@ -289,7 +289,7 @@ export function BranchesTab({ projectId, onOpenGraph }: { projectId: string; onO
     const branches = useQuery(gitBranchesOptions(projectId));
     const remotes = useQuery(gitRemotesOptions(projectId));
     const tags = useQuery(gitTagsOptions(projectId));
-    const { run, busy, notice, setNotice } = useGitAction(projectId);
+    const { run, busy } = useGitAction(projectId);
 
     const [query, setQuery] = useState("");
     const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ Local: true, Remotes: true, Tags: false });
@@ -426,8 +426,8 @@ export function BranchesTab({ projectId, onOpenGraph }: { projectId: string; onO
                 break;
             case "copy":
                 navigator.clipboard?.writeText(item.name).then(
-                    () => setNotice({ kind: "ok", text: `Copied "${item.name}".` }),
-                    () => setNotice({ kind: "error", text: "Could not copy to the clipboard." }),
+                    () => toast.add({ type: "success", title: `Copied "${item.name}"`, timeout: 2500 }),
+                    () => toast.add({ type: "error", title: "Could not copy to the clipboard" }),
                 );
                 break;
             case "checkout":
@@ -479,7 +479,6 @@ export function BranchesTab({ projectId, onOpenGraph }: { projectId: string; onO
                     placeholder="Search branches and tags"
                 />
             </div>
-            <NoticeBar notice={notice} onDismiss={() => setNotice(null)} />
             {filteredGroups.map(({ title, items, empty }) => (
                 <Section
                     key={title}

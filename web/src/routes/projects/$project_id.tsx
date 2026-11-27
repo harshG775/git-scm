@@ -24,7 +24,7 @@ import { BranchesTab } from "./-component/tabs/BranchesTab";
 import { ChangesTab } from "./-component/tabs/ChangesTab";
 import { FilesTab } from "./-component/tabs/FilesTab";
 import { FileViewer } from "./-component/FileViewer";
-import { SyncButton, SyncError, useSync } from "./-component/sync";
+import { SyncButton, useSync } from "./-component/sync";
 import { TabStrip, type EditorTab } from "./-component/TabStrip";
 
 export const Route = createFileRoute("/projects/$project_id")({
@@ -266,7 +266,6 @@ function Workspace({ project_id }: { project_id: string }) {
                         </Button>
                     </div>
                 </header>
-                <SyncError sync={sync} />
                 <section
                     aria-label={active}
                     data-project={project_id}
