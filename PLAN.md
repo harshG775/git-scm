@@ -76,10 +76,10 @@ so letting the API set arbitrary keys would be remote code execution. Allowed: `
 | Phase | Status | What | Where in the UI |
 | --- | --- | --- | --- |
 | 1 | Done | Global git config (identity, defaults) + app theme | Settings page, opened from a gear on the Welcome page |
-| 2 | Done | This repository: local overrides, with the inherited global value shown | Repository sheet → Repository settings |
+| 2 | Done | This repository: local overrides, with the inherited global value shown | Repository sheet → dedicated `/projects/{id}/settings` page |
 | 3 | Planned | Remotes: list, add, change URL, remove | Sheet, plus an "Add remote" button in the empty Remotes card |
 | 4 | Planned | Just-in-time prompts | Notice above the commit box when no identity is set; "Set identity" / "Add remote" actions on the failure toast |
-| 5 | Partial | Entry point inside a project: current repository, switch branch, change repository, repository settings | Repository name or branch in the sidebar header opens the Repository sheet; remotes and identity still to come |
+| 5 | Partial | Entry point inside a project: current repository, switch branch, change repository, repository settings | Repository name or branch in the sidebar header opens the Repository sheet; remotes and identity actions still to come |
 | 6 | Later | Credentials for HTTPS push (token) or showing the SSH public key | Later, needs its own design |
 
 API: `GET /api/git/config` returns `{path, values}` for the global file; `PUT /api/git/config` takes
