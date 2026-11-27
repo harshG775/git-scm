@@ -60,6 +60,19 @@ func GlobalConfigPath() string {
 	return filepath.Join(home, ".gitconfig")
 }
 
+// LocalConfigPath is the repository's config file, as git resolves it. Worktrees keep their own
+// file, and the project root may be a subdirectory of the repository.
+func (r Repo) LocalConfigPath(ctx context.Context) string {
+	out, err := r.git(ctx, "rev-parse", "--git-path", "config")
+	if err != nil || out == "" {
+		return ""
+	}
+	if filepath.IsAbs(out) {
+		return out
+	}
+	return filepath.Join(r.Root, out)
+}
+
 func scopeFlag(scope string) (string, error) {
 	switch scope {
 	case ConfigGlobal, ConfigLocal:

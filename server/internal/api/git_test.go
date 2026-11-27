@@ -602,3 +602,40 @@ func TestGlobalConfigOverHTTP(t *testing.T) {
 		t.Errorf("unset = %d", c)
 	}
 }
+
+func TestRepoConfigOverHTTP(t *testing.T) {
+	e := gitEnv(t)
+
+	get := func() map[string]any {
+		res := e.do("GET", e.p("/git/config"), "", nil)
+		var out map[string]any
+		json.NewDecoder(res.Body).Decode(&out)
+		if res.StatusCode != 200 {
+			t.Fatalf("GET = %d", res.StatusCode)
+		}
+		return out
+	}
+	if v := get()["values"].(map[string]any); len(v) != 0 {
+		t.Errorf("fresh repo config = %v", v)
+	}
+
+	put := func(body string) int {
+		return e.do("PUT", e.p("/git/config"), body, nil).StatusCode
+	}
+	if c := put(`{"key":"user.name","value":"Repo Name"}`); c != 204 {
+		t.Fatalf("PUT = %d", c)
+	}
+	out := get()
+	if out["values"].(map[string]any)["user.name"] != "Repo Name" || !strings.HasSuffix(out["path"].(string), "config") {
+		t.Errorf("after set = %v", out)
+	}
+	if c := put(`{"key":"core.sshCommand","value":"evil"}`); c != 422 {
+		t.Errorf("dangerous key = %d, want 422", c)
+	}
+	if c := put(`{"value":"x"}`); c != 400 {
+		t.Errorf("missing key = %d, want 400", c)
+	}
+	if c := put(`{"key":"user.name","value":""}`); c != 204 {
+		t.Errorf("unset = %d", c)
+	}
+}

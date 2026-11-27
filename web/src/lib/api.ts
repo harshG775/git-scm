@@ -261,6 +261,17 @@ export const api = {
         });
     },
 
+    /** The allowed keys set in this repository's config, i.e. its overrides of the global values. */
+    gitRepoConfig: async (id: string): Promise<GitConfig> => (await request(`${project(id)}/git/config`)).json(),
+    /** An empty value removes the local key, so the global value applies again. */
+    setGitRepoConfig: async (id: string, key: GitConfigKey, value: string): Promise<void> => {
+        await request(`${project(id)}/git/config`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key, value }),
+        });
+    },
+
     gitStatus: async (id: string): Promise<GitStatus> => (await request(`${project(id)}/git/status`)).json(),
 
     gitDiff: async (id: string, path: string, staged: boolean): Promise<string> =>

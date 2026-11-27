@@ -25,6 +25,7 @@ import { BranchesTab } from "./-component/tabs/BranchesTab";
 import { ChangesTab } from "./-component/tabs/ChangesTab";
 import { FilesTab } from "./-component/tabs/FilesTab";
 import { FileViewer } from "./-component/FileViewer";
+import { RepoMenu } from "./-component/RepoMenu";
 import { SyncButton, useSync } from "./-component/sync";
 import { TabStrip, type EditorTab } from "./-component/TabStrip";
 
@@ -83,18 +84,21 @@ function saveSetting(key: string, value: string) {
     }
 }
 
-/** project name / current branch, both from the API; git events keep the branch current */
-function RepoCrumb({ projectId }: { projectId: string }) {
+/** project name / current branch, both from the API; tapping either opens the repository sheet */
+function RepoCrumb({ projectId, onOpenBranches }: { projectId: string; onOpenBranches: () => void }) {
     const { data: projects } = useQuery(projectsOptions);
     const { data: branches } = useQuery(gitBranchesOptions(projectId));
-    const name = projects?.find((project) => project.id === projectId)?.name;
+    const [menuOpen, setMenuOpen] = useState(false);
+    const project = projects?.find((item) => item.id === projectId);
+    const name = project?.name;
 
     return (
         <div className="flex h-10 min-w-0 items-center gap-1 text-xs">
             <button
                 type="button"
-                aria-label="Switch project"
+                aria-label="Repository menu"
                 className="flex min-w-0 items-center gap-1.5 font-mono font-semibold text-sidebar-foreground"
+                onClick={() => setMenuOpen(true)}
             >
                 <ChevronsUpDown className="size-4 shrink-0" />
                 {name ? <span className="truncate">{name}</span> : <Skeleton className="h-4 w-24" />}
@@ -106,12 +110,24 @@ function RepoCrumb({ projectId }: { projectId: string }) {
                         type="button"
                         aria-label={branches.detached ? "Detached HEAD" : "Switch branch"}
                         className="flex min-w-0 items-center gap-1.5 font-mono text-sidebar-foreground"
+                        onClick={() => setMenuOpen(true)}
                     >
                         <GitBranch className="size-4 shrink-0 text-muted-foreground" />
                         <span className={cn("truncate", branches.detached && "italic")}>{branches.head}</span>
                     </button>
                 </>
             )}
+            <RepoMenu
+                projectId={projectId}
+                projectName={project?.name}
+                projectPath={project?.path}
+                head={branches?.isRepo ? branches.head : undefined}
+                detached={branches?.detached}
+                isRepo={branches?.isRepo}
+                open={menuOpen}
+                onOpenChange={setMenuOpen}
+                onSwitchBranch={onOpenBranches}
+            />
         </div>
     );
 }
@@ -247,7 +263,7 @@ function Workspace({ project_id }: { project_id: string }) {
                 )}
             >
                 <header className="flex h-10 items-center justify-between gap-2 border-b border-sidebar-border px-2 text-xs">
-                    <RepoCrumb projectId={project_id} />
+                    <RepoCrumb projectId={project_id} onOpenBranches={() => setActive("branches")} />
                     <div className="ml-auto flex items-center">
                         <LiveDot live={live} />
                         <SyncButton sync={sync} />

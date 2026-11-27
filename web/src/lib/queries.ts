@@ -11,6 +11,12 @@ export const gitGlobalConfigOptions = queryOptions({
     queryFn: api.gitGlobalConfig,
 });
 
+export const gitRepoConfigOptions = (projectId: string) =>
+    queryOptions({
+        queryKey: ["git", projectId, "config"],
+        queryFn: () => api.gitRepoConfig(projectId),
+    });
+
 export const treeOptions = (projectId: string, path: string) =>
     queryOptions({
         queryKey: ["tree", projectId, path],
