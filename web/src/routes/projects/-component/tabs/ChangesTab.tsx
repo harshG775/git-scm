@@ -143,14 +143,6 @@ export function ChangesTab({
             },
             { loadingTitle: "Fetching remotes…" },
         );
-    const pullFromOptions = () => {
-        setOptionsOpen(false);
-        runPullMode();
-    };
-    const pushFromOptions = () => {
-        setOptionsOpen(false);
-        runPush();
-    };
     const header = (
         <>
             <TabHeader
@@ -163,12 +155,19 @@ export function ChangesTab({
                             onClick={onOpenGraph}
                         />
                         <TooltipIconButton
-                            label="Fetch from remotes"
+                            label="Fetch From All Remotes"
                             icon={RefreshCw}
                             onClick={runFetch}
                             spinning={fetching}
                             disabled={busy}
                         />
+                        <TooltipIconButton
+                            label={selectedMode.value === "fetch-all" ? "Fetch All" : "Pull"}
+                            icon={CloudDownload}
+                            onClick={runPullMode}
+                            disabled={busy}
+                        />
+                        <TooltipIconButton label="Push" icon={CloudUpload} onClick={runPush} disabled={busy} />
                     </>
                 }
                 action={
@@ -224,22 +223,6 @@ export function ChangesTab({
                             </label>
                         ))}
                     </fieldset>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                        <Button type="button" disabled={busy} onClick={pullFromOptions} className="h-11">
-                            <CloudDownload aria-hidden="true" />
-                            {selectedMode.value === "fetch-all" ? "Fetch All" : "Pull"}
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={busy}
-                            onClick={pushFromOptions}
-                            className="h-11"
-                        >
-                            <CloudUpload aria-hidden="true" />
-                            Push
-                        </Button>
-                    </div>
                     <Button
                         type="button"
                         variant="outline"

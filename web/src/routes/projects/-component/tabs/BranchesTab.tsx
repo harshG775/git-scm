@@ -307,7 +307,7 @@ export function BranchesTab({ projectId, onOpenGraph }: { projectId: string; onO
         <TabHeader
             title="Branches"
             leadingAction={<TooltipIconButton label="Open Git Graph" icon={GitGraph} onClick={onOpenGraph} />}
-            refresh={{ onClick: fetchRemotes, refreshing: busy, label: "Fetch from remotes", icon: RefreshCw }}
+            refresh={{ onClick: fetchRemotes, refreshing: busy, label: "Fetch From All Remotes", icon: RefreshCw }}
             action={
                 <TooltipIconButton
                     label="New branch"
