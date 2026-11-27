@@ -2,6 +2,18 @@
 
 Mobile-first PWA for source control and code browsing. A single Go binary serves the app (frontend embedded) on localhost; built to run in Termux.
 
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/files.png" width="170" alt="Files tab"><br><b>Files</b></td>
+    <td align="center"><img src="docs/screenshots/changes.png" width="170" alt="Changes tab"><br><b>Changes</b></td>
+    <td align="center"><img src="docs/screenshots/branches.png" width="170" alt="Branches tab"><br><b>Branches</b></td>
+    <td align="center"><img src="docs/screenshots/graph.png" width="170" alt="Git graph"><br><b>Git graph</b></td>
+    <td align="center"><img src="docs/screenshots/editor.png" width="170" alt="Editor"><br><b>Editor</b></td>
+  </tr>
+</table>
+
 ## Install (Termux)
 
 ```sh
