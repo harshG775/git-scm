@@ -1,5 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
+import { Badge } from "#/components/ui/badge";
 import { cn } from "#/lib/utils";
 import { buildTree, flattenTree, listRows, type TreeEntry, type TreeNode } from "./build-tree";
 import { FileIcon, FolderIcon } from "./file-icon";
@@ -20,6 +21,8 @@ export type FileTreeProps<T = unknown> = {
     expanded?: readonly string[];
     /** show how many files are below each folder */
     showFolderCount?: boolean;
+    /** semibold names on files too, for lists where each row is a change to review */
+    strongNames?: boolean;
     selectedPath?: string;
     /** a file row was activated with a single click or Space */
     onSelect?: (entry: TreeEntry<T>, node: TreeNode<T>) => void;
@@ -34,8 +37,8 @@ export type FileTreeProps<T = unknown> = {
     className?: string;
 };
 
-const INDENT = 12;
-const BASE_PAD = 8;
+const INDENT = 16;
+const BASE_PAD = 12;
 
 export function FileTree<T = unknown>({
     entries,
@@ -45,6 +48,7 @@ export function FileTree<T = unknown>({
     defaultOpen = false,
     expanded,
     showFolderCount = false,
+    strongNames = false,
     selectedPath,
     onSelect,
     onOpen,
@@ -154,7 +158,7 @@ export function FileTree<T = unknown>({
                         onFocus={() => setActivePath(node.path)}
                         style={{ paddingLeft: BASE_PAD + depth * INDENT }}
                         className={cn(
-                            "flex min-h-11 cursor-pointer items-center gap-1.5 pr-2 text-sm outline-none select-none md:min-h-9",
+                            "flex min-h-12 cursor-pointer items-center gap-1.5 pr-2 text-sm outline-none select-none md:min-h-9",
                             "hover:bg-sidebar-accent/60 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset",
                             selected && "bg-sidebar-accent text-sidebar-accent-foreground",
                         )}
@@ -173,7 +177,14 @@ export function FileTree<T = unknown>({
                             ))}
                         {isFolder ? <FolderIcon open={open} /> : <FileIcon name={node.name} />}
                         <span className="min-w-0 flex-1">
-                            <span className={cn("block truncate", view === "list" && "font-medium")}>{node.name}</span>
+                            <span
+                                className={cn(
+                                    "block truncate",
+                                    strongNames || isFolder ? "font-semibold" : view === "list" && "font-medium",
+                                )}
+                            >
+                                {node.name}
+                            </span>
                             {dir !== undefined && (
                                 <span className="block truncate font-mono text-xs text-muted-foreground">
                                     {dir || "/"}
@@ -181,9 +192,7 @@ export function FileTree<T = unknown>({
                             )}
                         </span>
                         {isFolder && showFolderCount && node.fileCount > 0 && (
-                            <span className="shrink-0 rounded-full bg-muted px-1.5 text-xs text-muted-foreground">
-                                {node.fileCount}
-                            </span>
+                            <Badge variant="count">{node.fileCount}</Badge>
                         )}
                         {renderMeta?.(node)}
                         {actions && (

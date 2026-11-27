@@ -281,6 +281,7 @@ export function ChangesTab() {
                                 entries={files.map((file): TreeEntry<ChangeFile> => ({ path: file.path, data: file }))}
                                 defaultOpen
                                 showFolderCount
+                                strongNames
                                 renderMeta={({ entry }) => entry?.data && <ChangeMeta file={entry.data} />}
                                 renderActions={(node) => rowActions(nodePaths(node))}
                             />
@@ -431,7 +432,7 @@ function RowButton({
         <Button
             type="button"
             variant={bare ? "ghost" : "outline"}
-            size="icon"
+            size="icon-sm"
             aria-label={label}
             title={label}
             onClick={onClick}
