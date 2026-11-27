@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
 import type { GitCommit, GitLog, GitStash } from "#/lib/api";
-import { Graph } from "./GraphView";
+import type { UncommittedCounts } from "#/lib/graph-items";
+import { Graph, ROW_H } from "./GraphView";
 
 const commit = (oid: string, subject: string, parents: string[], refs: GitCommit["refs"] = []): GitCommit => ({
     oid: oid.padEnd(40, "0"),
@@ -44,9 +45,17 @@ const baseLog: GitLog = {
         commit("c1", "first", []),
     ],
 };
-const render = (log: GitLog, selected: string | null = null) =>
+const render = (log: GitLog, selected: string | null = null, uncommittedCounts?: UncommittedCounts) =>
     renderToStaticMarkup(
-        <Graph log={log} desktop selected={selected} onSelect={() => {}} onMore={() => {}} loadingMore={false} />,
+        <Graph
+            log={log}
+            desktop
+            selected={selected}
+            uncommittedCounts={uncommittedCounts}
+            onSelect={() => {}}
+            onMore={() => {}}
+            loadingMore={false}
+        />,
     );
 
 test("renders every commit with its refs, and the desktop column headers", () => {
@@ -80,7 +89,13 @@ test("uncommitted changes and a stash get their own rows, and the stash joins th
     expect(html).toContain("WIP on main: wip");
     expect(html).toContain('stroke-dasharray="3 3"'); // the dashed line from the uncommitted node
     expect(html).toContain("#d946ef"); // stash colour
-    expect(html).toMatch(/<path[^>]*d="M[\d.]+ 20C/); // the curve from the stash node into the main line
+    expect(html).toMatch(new RegExp(`<path[^>]*d="M[\\d.]+ ${ROW_H / 2}C`)); // curve from the stash into main line
+});
+
+test("shows staged and unstaged counts under the uncommitted row", () => {
+    const html = render({ ...baseLog, uncommitted: 6 }, null, { staged: 2, unstaged: 4 });
+    expect(html).toContain("Uncommitted Changes (6)");
+    expect(html).toContain("2 staged · 4 unstaged");
 });
 
 test("a merge draws curves between lanes", () => {

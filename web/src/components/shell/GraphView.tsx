@@ -5,17 +5,17 @@ import { cn } from "cn";
 import { Button } from "#/components/ui/button";
 import type { GitCommit, GitLog, GitRef } from "#/lib/api";
 import { COLORS, layoutGraph, type GraphRow } from "#/lib/graph";
-import { buildItems, toInputs, type GraphItem } from "#/lib/graph-items";
+import { buildItems, toInputs, type GraphItem, type UncommittedCounts } from "#/lib/graph-items";
 import { resync } from "#/lib/live";
-import { gitLogOptions } from "#/lib/queries";
+import { gitLogOptions, gitStatusOptions } from "#/lib/queries";
 import { timeAgo } from "#/lib/time";
 import { useIsDesktop } from "#/lib/use-media-query";
 import { useWorkspace } from "#/stores/workspace";
 
-export const ROW_H = 40;
+export const ROW_H = 72;
 const PAD = 10;
 const PAGE = 100;
-const MIN_GRAPH = 56;
+const MIN_GRAPH = 92;
 // Line colours for branches; stash and uncommitted changes have their own, as in Git Graph.
 const LINE = ["#3b82f6", "#22c55e", "#f59e0b", "#a855f7", "#ef4444", "#14b8a6", "#eab308", "#06b6d4"].slice(0, COLORS);
 const STASH = "#d946ef";
@@ -38,6 +38,13 @@ export function GraphView({ projectId }: { projectId: string }) {
     const [limit, setLimit] = useState(PAGE);
     const [selected, setSelected] = useState<string | null>(null);
     const { data: log, error, isPending, isPlaceholderData } = useQuery(gitLogOptions(projectId, scope, limit));
+    const { data: status } = useQuery(gitStatusOptions(projectId));
+    const uncommittedCounts = status
+        ? {
+              staged: status.staged.length,
+              unstaged: new Set([...status.conflicts, ...status.changes].map((change) => change.path)).size,
+          }
+        : undefined;
 
     return (
         <div className="flex h-full flex-col">
@@ -97,6 +104,7 @@ export function GraphView({ projectId }: { projectId: string }) {
                     log={log}
                     desktop={desktop}
                     selected={selected}
+                    uncommittedCounts={uncommittedCounts}
                     onSelect={(id) => setSelected((cur) => (cur === id ? null : id))}
                     onMore={() => setLimit((l) => l + PAGE)}
                     loadingMore={isPlaceholderData}
@@ -110,6 +118,7 @@ export function Graph({
     log,
     desktop,
     selected,
+    uncommittedCounts,
     onSelect,
     onMore,
     loadingMore,
@@ -117,11 +126,12 @@ export function Graph({
     log: GitLog;
     desktop: boolean;
     selected: string | null;
+    uncommittedCounts?: UncommittedCounts;
     onSelect: (id: string) => void;
     onMore: () => void;
     loadingMore: boolean;
 }) {
-    const items = buildItems(log);
+    const items = buildItems(log, uncommittedCounts);
     if (items.length === 0) return <Message>No commits yet.</Message>;
 
     const rows = layoutGraph(toInputs(items));
@@ -199,7 +209,11 @@ function Row({
             type="button"
             aria-pressed={selected}
             style={{ height: ROW_H }}
-            className={cn("grid w-full items-center text-left hover:bg-muted/60", COLUMNS, selected && "bg-muted")}
+            className={cn(
+                "grid w-full items-center border-b border-border/60 pr-3 text-left hover:bg-muted/60",
+                COLUMNS,
+                selected && "bg-muted",
+            )}
             onClick={onSelect}
         >
             <Lines item={item} row={row} width={width} laneW={laneW} isHead={isHead} />
@@ -214,7 +228,7 @@ function Row({
 function meta(item: GraphItem) {
     switch (item.kind) {
         case "uncommitted":
-            return { date: "*", author: "*", hash: "*" };
+            return { date: "", author: "", hash: "" };
         case "stash":
             return { date: fullDate(item.stash.time), author: "", hash: item.stash.oid.slice(0, 7) };
         case "commit":
@@ -224,28 +238,43 @@ function meta(item: GraphItem) {
 
 function Description({ item }: { item: GraphItem }) {
     if (item.kind === "uncommitted") {
-        return <span className="truncate text-sm font-semibold">Uncommitted Changes ({item.count})</span>;
+        return (
+            <span className="flex min-w-0 flex-col justify-center">
+                <span className="truncate text-sm font-semibold">Uncommitted Changes ({item.count})</span>
+                {item.staged !== undefined && item.unstaged !== undefined && (
+                    <span className="truncate text-[11px] text-muted-foreground">
+                        {item.staged} staged · {item.unstaged} unstaged
+                    </span>
+                )}
+            </span>
+        );
     }
     if (item.kind === "stash") {
         return (
-            <span className="flex min-w-0 items-center gap-1.5">
-                <Badge color={STASH} icon={Archive} solid>{`stash@{${item.stash.index}}`}</Badge>
-                <span className="truncate text-sm">
+            <span className="flex min-w-0 flex-col justify-center gap-0.5">
+                <span>
+                    <Badge color={STASH} icon={Archive} solid>{`stash@{${item.stash.index}}`}</Badge>
+                </span>
+                <span className="truncate text-sm text-muted-foreground">
                     {item.stash.auto ? `WIP on ${item.stash.branch}: ${item.stash.title}` : item.stash.title}
+                </span>
+                <span className="truncate text-[11px] text-muted-foreground md:hidden">
+                    On {item.stash.branch} · {timeAgo(item.stash.time)}
                 </span>
             </span>
         );
     }
     const c = item.commit;
     return (
-        <span className="flex min-w-0 flex-col justify-center">
-            <span className="flex min-w-0 items-center gap-1.5">
-                {c.refs.map((r) => (
-                    <RefBadge key={`${r.kind}:${r.name}`} r={r} />
-                ))}
-                <span className="truncate text-sm">{c.subject || "(no message)"}</span>
-            </span>
-            {/* Phones have no columns: the details go on a second line. */}
+        <span className="flex min-w-0 flex-col justify-center gap-0.5">
+            <span className="truncate text-sm font-medium">{c.subject || "(no message)"}</span>
+            {c.refs.length > 0 && (
+                <span className="flex min-w-0 items-center gap-1 overflow-hidden">
+                    {c.refs.map((r) => (
+                        <RefBadge key={`${r.kind}:${r.name}`} r={r} />
+                    ))}
+                </span>
+            )}
             <span className="truncate text-[11px] text-muted-foreground md:hidden">
                 {c.author} · {timeAgo(c.time)} · {c.oid.slice(0, 7)}
             </span>

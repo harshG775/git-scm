@@ -1,8 +1,17 @@
 import type { GitCommit, GitLog, GitStash } from "./api";
 import type { GraphInput } from "./graph";
 
+export type UncommittedCounts = { staged: number; unstaged: number };
+
 export type GraphItem =
-    | { kind: "uncommitted"; id: string; parents: string[]; count: number }
+    | {
+          kind: "uncommitted";
+          id: string;
+          parents: string[];
+          count: number;
+          staged?: number;
+          unstaged?: number;
+      }
     | { kind: "stash"; id: string; parents: string[]; stash: GitStash }
     | { kind: "commit"; id: string; parents: string[]; commit: GitCommit };
 
@@ -13,14 +22,17 @@ export const UNCOMMITTED_ID = "uncommitted";
  * stash placed just above the commit it was made on, like the pink branch in Git Graph. A stash
  * whose base commit is not in the loaded page is left out; it appears once that page is loaded.
  */
-export function buildItems(log: GitLog): GraphItem[] {
+export function buildItems(log: GitLog, counts?: UncommittedCounts): GraphItem[] {
     const items: GraphItem[] = [];
-    if (log.uncommitted > 0) {
+    const uncommittedCount = log.uncommitted || (counts ? counts.staged + counts.unstaged : 0);
+    if (uncommittedCount > 0) {
         items.push({
             kind: "uncommitted",
             id: UNCOMMITTED_ID,
             parents: log.head ? [log.head] : [],
-            count: log.uncommitted,
+            count: uncommittedCount,
+            staged: counts?.staged,
+            unstaged: counts?.unstaged,
         });
     }
 
