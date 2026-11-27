@@ -25,6 +25,8 @@ export function PanelSnapProvider({ children }: { children: React.ReactNode }) {
     const [activePanel, setActivePanel] = useState<SnapPanel>("sidebar");
     const activePanelRef = useRef<SnapPanel>("sidebar");
     const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // The panel a recent snapTo aimed at, and until when it may still correct the position.
+    const aim = useRef<{ panel: SnapPanel; until: number } | null>(null);
 
     const updateActivePanel = useCallback((panel: SnapPanel) => {
         activePanelRef.current = panel;
@@ -37,6 +39,7 @@ export function PanelSnapProvider({ children }: { children: React.ReactNode }) {
             const target = container?.querySelector<HTMLElement>(`[data-snap-panel="${panel}"]`);
             updateActivePanel(panel);
             if (!container || !target) return;
+            aim.current = { panel, until: Date.now() + 2000 };
             container.scrollTo({ left: centeredScrollLeft(container, target), behavior: "smooth" });
         },
         [updateActivePanel],
@@ -61,6 +64,19 @@ export function PanelSnapProvider({ children }: { children: React.ReactNode }) {
             // snapping itself is native CSS scroll-snap (it waits for the finger to lift);
             // this only tracks which panel is active
             if (nearest) updateActivePanel(nearest.id);
+
+            // A slide started by snapTo can be cut short by something else scrolling the container
+            // (focus, layout changes while the editor mounts). If it came to rest off target, finish it.
+            const pending = aim.current;
+            if (!pending || Date.now() > pending.until) {
+                aim.current = null;
+                return;
+            }
+            const element = container.querySelector<HTMLElement>(`[data-snap-panel="${pending.panel}"]`);
+            if (!element) return;
+            const left = centeredScrollLeft(container, element);
+            if (Math.abs(container.scrollLeft - left) > 1) container.scrollTo({ left, behavior: "auto" });
+            else aim.current = null;
         }, 120);
     }, [updateActivePanel]);
 

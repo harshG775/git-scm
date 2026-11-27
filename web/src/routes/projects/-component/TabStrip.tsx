@@ -60,9 +60,17 @@ export function TabStrip({
     const strip = useRef<HTMLDivElement>(null);
     const active = tabs.find((t) => t.id === activeId);
 
-    // Keep the active tab visible when it changes or the list grows.
+    // Keep the active tab visible when it changes or the list grows. Only the strip is scrolled:
+    // scrollIntoView also scrolls every ancestor, and on a phone that includes the panel slider,
+    // which then fights the slide to the editor and stops half-way between the two panels.
     useEffect(() => {
-        strip.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ inline: "nearest", block: "nearest" });
+        const bar = strip.current;
+        const tab = bar?.querySelector('[aria-selected="true"]');
+        if (!bar || !tab) return;
+        const barBox = bar.getBoundingClientRect();
+        const tabBox = tab.getBoundingClientRect();
+        if (tabBox.left < barBox.left) bar.scrollLeft += tabBox.left - barBox.left;
+        else if (tabBox.right > barBox.right) bar.scrollLeft += tabBox.right - barBox.right;
     }, [activeId, tabs.length]);
 
     /** Closes `ids`; pinned tabs are skipped unless `force`. The active tab falls to its neighbour. */
