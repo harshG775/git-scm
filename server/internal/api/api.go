@@ -41,6 +41,7 @@ func Register(mux *http.ServeMux, store *config.Store, hub *watch.Hub) {
 	mux.HandleFunc("GET /api/p/{id}/file", a.readFile)
 	mux.HandleFunc("PUT /api/p/{id}/file", a.writeFile)
 	a.registerGit(mux)
+	a.registerConfig(mux)
 	mux.HandleFunc("PUT /api/p/{id}/watch", a.setWatch)
 	mux.HandleFunc("GET /api/p/{id}/events", a.events)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {

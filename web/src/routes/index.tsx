@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, Folder, FolderGit2, FolderOpen, GitBranch, X } from "lucide-react";
-import { Button } from "#/components/ui/button";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { ChevronLeft, Folder, FolderGit2, FolderOpen, GitBranch, Settings, X } from "lucide-react";
+import { Button, buttonVariants } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { NativeDialog } from "#/components/ui/native-dialog";
 import { api } from "#/lib/api";
@@ -38,9 +38,21 @@ function Welcome() {
 
     return (
         <main className="mx-auto flex min-h-dvh max-w-xl flex-col gap-8 px-4 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
-            <header>
-                <h1 className="text-2xl font-semibold">git csm</h1>
-                <p className="text-sm text-muted-foreground">Source control and code browsing, built for your phone.</p>
+            <header className="flex items-start justify-between gap-2">
+                <div>
+                    <h1 className="text-2xl font-semibold">git csm</h1>
+                    <p className="text-sm text-muted-foreground">
+                        Source control and code browsing, built for your phone.
+                    </p>
+                </div>
+                <Link
+                    to="/settings"
+                    aria-label="Settings"
+                    title="Settings"
+                    className={buttonVariants({ variant: "ghost", size: "icon", className: "-mt-1 -mr-2 shrink-0" })}
+                >
+                    <Settings aria-hidden="true" />
+                </Link>
             </header>
 
             <section>

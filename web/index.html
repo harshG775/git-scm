@@ -7,6 +7,18 @@
         <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <title>git csm</title>
+        <script>
+            /* apply the saved theme before first paint (same rule as src/lib/theme.ts) */
+            (function () {
+                var theme = "auto";
+                try {
+                    theme = JSON.parse(localStorage.getItem("git-csm.settings")).state.theme || "auto";
+                } catch (e) {}
+                var dark = theme === "dark" || (theme === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+                document.documentElement.classList.toggle("dark", dark);
+                document.documentElement.style.colorScheme = dark ? "dark" : "light";
+            })();
+        </script>
         <style>
             /* painted before any JS: dark background plus a workspace-shaped skeleton, removed once React mounts */
             html,

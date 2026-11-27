@@ -56,6 +56,30 @@ Errors: `{error}` JSON with a matching status code.
 - [x] M2: live updates + conflicts, PWA
 - [x] M3: Source Control
 - [ ] M4: polish
+- [ ] M5: Settings (below)
 
 ## Open
 - Terminal in scope? (Would need a WebSocket.)
+
+## M5: Settings and git config
+
+Git's own config is the source of truth: the server reads and writes it with `git config`, and git decides
+which value wins (repo over global over system). The app never keeps a copy. App-only preferences (theme,
+confirm destructive actions, do not disturb) are not git config and live in the browser's localStorage.
+
+**Only an allowlist of keys is editable**, and values are validated (no newlines, enums checked). Some keys
+run programs (`alias.*` with `!`, `core.sshCommand`, `core.hooksPath`, `core.fsmonitor`, `credential.helper`),
+so letting the API set arbitrary keys would be remote code execution. Allowed: `user.name`, `user.email`,
+`init.defaultBranch`, `pull.rebase`, `push.autoSetupRemote`, `core.autocrlf`.
+
+| Phase | What | Where in the UI |
+| --- | --- | --- |
+| 1 | Global git config (identity, defaults) + app theme | Settings sheet, opened from a gear on the Welcome page |
+| 2 | This repository: identity override, effective value with its source (repo / global) | Same sheet, "This repository" segment; shown inside a project |
+| 3 | Remotes: list, add, change URL, remove | Sheet, plus an "Add remote" button in the empty Remotes card |
+| 4 | Just-in-time prompts | Notice above the commit box when no identity is set; "Set identity" / "Add remote" actions on the failure toast |
+| 5 | Entry point inside a project | "..." button in the sidebar header (Repository sheet: remotes, identity, settings, switch project) |
+| 6 | Credentials for HTTPS push (token) or showing the SSH public key | later, needs its own design |
+
+API (phase 1): `GET /api/git/config` returns `{path, values}` for the global file; `PUT /api/git/config` takes
+`{key, value}` (empty value unsets the key). Phase 2 adds `scope=local` on `/api/p/{id}/git/config`.

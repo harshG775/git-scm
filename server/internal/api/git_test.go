@@ -563,3 +563,42 @@ func TestBranchManagementOverHTTP(t *testing.T) {
 		t.Errorf("rename without a target = %d, want 400", code)
 	}
 }
+
+func TestGlobalConfigOverHTTP(t *testing.T) {
+	e := gitEnv(t)
+	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(t.TempDir(), "gitconfig"))
+
+	get := func() map[string]any {
+		res := e.do("GET", "/api/git/config", "", nil)
+		var out map[string]any
+		json.NewDecoder(res.Body).Decode(&out)
+		if res.StatusCode != 200 {
+			t.Fatalf("GET = %d", res.StatusCode)
+		}
+		return out
+	}
+	if v := get()["values"].(map[string]any); len(v) != 0 {
+		t.Errorf("fresh config = %v", v)
+	}
+
+	put := func(body string) int {
+		res := e.do("PUT", "/api/git/config", body, nil)
+		return res.StatusCode
+	}
+	if c := put(`{"key":"user.name","value":"Mira"}`); c != 204 {
+		t.Fatalf("PUT = %d", c)
+	}
+	out := get()
+	if out["values"].(map[string]any)["user.name"] != "Mira" || !strings.HasSuffix(out["path"].(string), "gitconfig") {
+		t.Errorf("after set = %v", out)
+	}
+	if c := put(`{"key":"core.sshCommand","value":"evil"}`); c != 422 {
+		t.Errorf("dangerous key = %d, want 422", c)
+	}
+	if c := put(`{"value":"x"}`); c != 400 {
+		t.Errorf("missing key = %d, want 400", c)
+	}
+	if c := put(`{"key":"user.name","value":""}`); c != 204 {
+		t.Errorf("unset = %d", c)
+	}
+}

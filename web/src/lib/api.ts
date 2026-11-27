@@ -63,6 +63,21 @@ export interface GitNumstat {
     changes: Record<string, GitLines>;
 }
 
+/** The keys of git config the app can read and write. Keys that are not set are absent. */
+export type GitConfigKey =
+    | "user.name"
+    | "user.email"
+    | "init.defaultBranch"
+    | "pull.rebase"
+    | "push.autoSetupRemote"
+    | "core.autocrlf";
+
+export interface GitConfig {
+    /** The file global changes are written to, e.g. /home/me/.gitconfig. */
+    path: string;
+    values: Partial<Record<GitConfigKey, string>>;
+}
+
 export interface GitBranch {
     name: string;
     current: boolean;
@@ -234,6 +249,16 @@ export const api = {
     getFile: async (id: string, path: string): Promise<FileContent> => {
         const res = await request(`${project(id)}/file${q(path)}`);
         return { text: await res.text(), etag: res.headers.get("ETag") ?? "" };
+    },
+
+    gitGlobalConfig: async (): Promise<GitConfig> => (await request("/api/git/config")).json(),
+    /** An empty value removes the key. Only an allowlist of keys is accepted; others are refused with a 422. */
+    setGitGlobalConfig: async (key: GitConfigKey, value: string): Promise<void> => {
+        await request("/api/git/config", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key, value }),
+        });
     },
 
     gitStatus: async (id: string): Promise<GitStatus> => (await request(`${project(id)}/git/status`)).json(),
