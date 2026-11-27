@@ -42,7 +42,11 @@ trap 'rm -rf "$TMP"' EXIT
 
 ASSET="$BIN-linux-$ARCH"
 echo "Downloading $ASSET..."
-curl -fsSL "$BASE/$ASSET" -o "$TMP/$ASSET"
+if ! curl -fsSL "$BASE/$ASSET" -o "$TMP/$ASSET" 2>/dev/null; then
+  ASSET="git-csm-linux-$ARCH"
+  echo "Trying legacy release asset $ASSET..."
+  curl -fsSL "$BASE/$ASSET" -o "$TMP/$ASSET"
+fi
 curl -fsSL "$BASE/checksums.txt" -o "$TMP/checksums.txt"
 
 # Verify against the published checksum before installing.
