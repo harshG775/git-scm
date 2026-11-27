@@ -52,6 +52,17 @@ export interface GitStatus {
     changes: GitChange[];
 }
 
+export interface GitLines {
+    added: number;
+    removed: number;
+}
+
+/** Changed-line counts per path for the staged and unstaged halves of the status. Untracked and binary files have none. */
+export interface GitNumstat {
+    staged: Record<string, GitLines>;
+    changes: Record<string, GitLines>;
+}
+
 export interface GitBranch {
     name: string;
     current: boolean;
@@ -60,6 +71,26 @@ export interface GitBranch {
     oid: string;
     /** First line of that commit's message. */
     subject: string;
+    /** Commits ahead of / behind the upstream (0 without one). */
+    ahead: number;
+    behind: number;
+    /** Already part of the checked-out branch, so deleting it loses nothing. */
+    merged: boolean;
+}
+
+export interface GitTag {
+    name: string;
+    /** Short id of the tagged commit. */
+    oid: string;
+    /** Unix seconds. */
+    time: number;
+    subject: string;
+}
+
+export interface GitTags {
+    isRepo: boolean;
+    /** Newest first. */
+    tags: GitTag[];
 }
 
 export interface GitBranches {
@@ -211,12 +242,26 @@ export const api = {
         (await request(`${project(id)}/git/diff${q(path)}${staged ? "&staged=1" : ""}`)).text(),
 
     gitBranches: async (id: string): Promise<GitBranches> => (await request(`${project(id)}/git/branches`)).json(),
-    /** Creates the branch at HEAD and switches to it. */
-    gitCreateBranch: (id: string, name: string) => gitPost(id, "branches", { name }),
+    /** Creates the branch and switches to it. It starts at `from` (a branch, "origin/x", a tag or a commit), or at HEAD. */
+    gitCreateBranch: (id: string, name: string, from?: string) => gitPost(id, "branches", { name, from }),
+    gitRenameBranch: (id: string, name: string, to: string) => gitPost(id, "branches/rename", { name, to }),
+    /** Without `force` git refuses a branch that is not merged. */
+    gitDeleteBranch: (id: string, name: string, force = false) => gitPost(id, "branches/delete", { name, force }),
+    /** Merges into the checked-out branch. A merge that conflicts is undone and reported as an error. */
+    gitMerge: async (id: string, name: string): Promise<{ output: string }> =>
+        (await gitPost(id, "merge", { name })).json(),
+
+    gitTags: async (id: string): Promise<GitTags> => (await request(`${project(id)}/git/tags`)).json(),
+    gitDeleteTag: (id: string, name: string) => gitPost(id, "tags/delete", { name }),
+    gitPushTag: async (id: string, name: string): Promise<{ output: string }> =>
+        (await gitPost(id, "tags/push", { name })).json(),
     gitCheckout: (id: string, name: string) => gitPost(id, "checkout", { name }),
 
     gitRemotes: async (id: string): Promise<GitRemotes> => (await request(`${project(id)}/git/remotes`)).json(),
     gitFetch: async (id: string): Promise<{ output: string }> => (await gitPost(id, "fetch")).json(),
+    /** "origin/feature" deletes `feature` on origin. */
+    gitDeleteRemoteBranch: async (id: string, ref: string): Promise<{ output: string }> =>
+        (await gitPost(id, "remote-branches/delete", { name: ref })).json(),
     /** Creates a local branch tracking `ref` ("origin/feature") and switches to it. */
     gitCheckoutRemote: (id: string, ref: string) => gitPost(id, "checkout-remote", { name: ref }),
 
@@ -233,8 +278,12 @@ export const api = {
     gitStage: (id: string, paths: string[]) => gitPost(id, "stage", { paths }),
     gitUnstage: (id: string, paths: string[]) => gitPost(id, "unstage", { paths }),
     gitDiscard: (id: string, paths: string[]) => gitPost(id, "discard", { paths }),
-    gitCommit: async (id: string, message: string): Promise<{ oid: string }> =>
-        (await gitPost(id, "commit", { message })).json(),
+    gitNumstat: async (id: string): Promise<GitNumstat> => (await request(`${project(id)}/git/numstat`)).json(),
+    /** With `amend`, rewrites the last commit; an empty message then keeps the old one. */
+    gitCommit: async (id: string, message: string, amend = false): Promise<{ oid: string }> =>
+        (await gitPost(id, "commit", { message, amend })).json(),
+    /** Moves the branch back one commit, keeping its changes staged. Returns the old message. */
+    gitUndoCommit: async (id: string): Promise<{ message: string }> => (await gitPost(id, "undo-commit")).json(),
     gitPull: async (id: string): Promise<{ output: string }> => (await gitPost(id, "pull")).json(),
     gitPush: async (id: string): Promise<{ output: string }> => (await gitPost(id, "push")).json(),
 

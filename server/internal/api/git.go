@@ -31,7 +31,13 @@ func (a *API) registerGit(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/p/{id}/git/log", a.gitLog)
 	mux.HandleFunc("GET /api/p/{id}/git/branches", a.gitBranches)
 	mux.HandleFunc("GET /api/p/{id}/git/tags", a.gitTags)
-	mux.HandleFunc("POST /api/p/{id}/git/branches", a.gitNamed((git.Repo).CreateBranch))
+	mux.HandleFunc("POST /api/p/{id}/git/branches", a.gitCreateBranch)
+	mux.HandleFunc("POST /api/p/{id}/git/branches/rename", a.gitRenameBranch)
+	mux.HandleFunc("POST /api/p/{id}/git/branches/delete", a.gitDeleteBranch)
+	mux.HandleFunc("POST /api/p/{id}/git/remote-branches/delete", a.gitNetNamed((git.Repo).DeleteRemoteBranch))
+	mux.HandleFunc("POST /api/p/{id}/git/tags/delete", a.gitNamed((git.Repo).DeleteTag))
+	mux.HandleFunc("POST /api/p/{id}/git/tags/push", a.gitNetNamed((git.Repo).PushTag))
+	mux.HandleFunc("POST /api/p/{id}/git/merge", a.gitNetNamed((git.Repo).Merge))
 	mux.HandleFunc("POST /api/p/{id}/git/checkout", a.gitNamed((git.Repo).SwitchBranch))
 	mux.HandleFunc("GET /api/p/{id}/git/remotes", a.gitRemotes)
 	mux.HandleFunc("POST /api/p/{id}/git/fetch", a.gitNet((git.Repo).Fetch))
@@ -42,6 +48,8 @@ func (a *API) registerGit(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/p/{id}/git/stash/pop", a.gitStashAct((git.Repo).StashPop))
 	mux.HandleFunc("POST /api/p/{id}/git/stash/drop", a.gitStashAct((git.Repo).StashDrop))
 	mux.HandleFunc("POST /api/p/{id}/git/commit", a.gitCommit)
+	mux.HandleFunc("POST /api/p/{id}/git/undo-commit", a.gitUndoCommit)
+	mux.HandleFunc("GET /api/p/{id}/git/numstat", a.gitNumstat)
 	mux.HandleFunc("POST /api/p/{id}/git/pull", a.gitNet((git.Repo).Pull))
 	mux.HandleFunc("POST /api/p/{id}/git/push", a.gitNet((git.Repo).Push))
 }
@@ -273,6 +281,105 @@ func (a *API) gitNamed(op func(git.Repo, context.Context, string) error) http.Ha
 	}
 }
 
+// gitNetNamed builds a handler for operations that take one ref name and report git's output
+// (merge, deleting a remote branch, pushing a tag). Pushes can be slow, so it gets the long timeout.
+func (a *API) gitNetNamed(op func(git.Repo, context.Context, string) (string, error)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		proj, repo, ok := a.repo(w, r)
+		if !ok {
+			return
+		}
+		var body struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil || strings.TrimSpace(body.Name) == "" {
+			fail(w, http.StatusBadRequest, "body must be {\"name\": \"...\"}")
+			return
+		}
+		defer a.lock(proj.ID)()
+		ctx, cancel := context.WithTimeout(r.Context(), gitNetTimeout)
+		defer cancel()
+		out, err := op(repo, ctx, strings.TrimSpace(body.Name))
+		if err != nil {
+			failGit(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"output": out})
+	}
+}
+
+// gitCreateBranch creates a branch at HEAD, or at `from` (a branch, remote branch, tag or commit),
+// and switches to it.
+func (a *API) gitCreateBranch(w http.ResponseWriter, r *http.Request) {
+	proj, repo, ok := a.repo(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Name string `json:"name"`
+		From string `json:"from"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil || strings.TrimSpace(body.Name) == "" {
+		fail(w, http.StatusBadRequest, "body must be {\"name\": \"...\", \"from\": \"...\"}")
+		return
+	}
+	defer a.lock(proj.ID)()
+	ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
+	defer cancel()
+	if err := repo.CreateBranchFrom(ctx, strings.TrimSpace(body.Name), strings.TrimSpace(body.From)); err != nil {
+		failGit(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *API) gitRenameBranch(w http.ResponseWriter, r *http.Request) {
+	proj, repo, ok := a.repo(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Name string `json:"name"`
+		To   string `json:"to"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil || strings.TrimSpace(body.Name) == "" || strings.TrimSpace(body.To) == "" {
+		fail(w, http.StatusBadRequest, "body must be {\"name\": \"...\", \"to\": \"...\"}")
+		return
+	}
+	defer a.lock(proj.ID)()
+	ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
+	defer cancel()
+	if err := repo.RenameBranch(ctx, strings.TrimSpace(body.Name), strings.TrimSpace(body.To)); err != nil {
+		failGit(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// gitDeleteBranch deletes a local branch; `force` also deletes one that is not merged.
+func (a *API) gitDeleteBranch(w http.ResponseWriter, r *http.Request) {
+	proj, repo, ok := a.repo(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Name  string `json:"name"`
+		Force bool   `json:"force"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil || strings.TrimSpace(body.Name) == "" {
+		fail(w, http.StatusBadRequest, "body must be {\"name\": \"...\", \"force\": false}")
+		return
+	}
+	defer a.lock(proj.ID)()
+	ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
+	defer cancel()
+	if err := repo.DeleteBranch(ctx, strings.TrimSpace(body.Name), body.Force); err != nil {
+		failGit(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // gitPaths builds a handler for operations on a list of project-relative paths.
 func (a *API) gitPaths(op func(git.Repo, context.Context, []string) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -321,20 +428,55 @@ func (a *API) gitCommit(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		Message string `json:"message"`
+		Amend   bool   `json:"amend"`
 	}
-	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil || strings.TrimSpace(body.Message) == "" {
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil || (!body.Amend && strings.TrimSpace(body.Message) == "") {
 		fail(w, http.StatusBadRequest, "commit message required")
 		return
 	}
 	defer a.lock(proj.ID)()
 	ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
 	defer cancel()
-	oid, err := repo.Commit(ctx, body.Message)
+	oid, err := repo.Commit(ctx, body.Message, body.Amend)
 	if err != nil {
 		failGit(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"oid": oid})
+}
+
+// gitUndoCommit moves the branch back one commit, keeping the changes staged, and returns the
+// old message so the page can put it back in the message box.
+func (a *API) gitUndoCommit(w http.ResponseWriter, r *http.Request) {
+	proj, repo, ok := a.repo(w, r)
+	if !ok {
+		return
+	}
+	defer a.lock(proj.ID)()
+	ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
+	defer cancel()
+	message, err := repo.UndoCommit(ctx)
+	if err != nil {
+		failGit(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": message})
+}
+
+func (a *API) gitNumstat(w http.ResponseWriter, r *http.Request) {
+	_, repo, ok := a.repo(w, r)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), gitTimeout)
+	defer cancel()
+	n, err := repo.Numstat(ctx)
+	if err != nil {
+		failGit(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, n)
 }
 
 // gitNet builds a handler for pull/push, which can take a while and report progress text.

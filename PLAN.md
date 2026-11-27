@@ -27,7 +27,7 @@ UX modeled on VS Code (Welcome tab, Explorer, file tabs, built-in SCM view).
 | POST | `/api/p/{id}/git/{stage,unstage,discard}` | `{paths}`; 204 |
 | GET | `/api/p/{id}/git/log?scope=local\|all&limit=` | commits newest first, each before its parents, with `parents[]`, `refs[]`; plus `uncommitted`, `stashes[]` (with `base`), `hasMore` |
 | GET | `/api/p/{id}/git/branches` | `{isRepo, head, detached, branches[]}`; current first, then most recent |
-| POST | `/api/p/{id}/git/branches` | `{name}`; creates at HEAD and switches; 204 |
+| POST | `/api/p/{id}/git/branches` | `{name, from?}`; creates at HEAD (or at `from`: branch, remote branch, tag, commit) and switches; 204 |
 | POST | `/api/p/{id}/git/checkout` | `{name}`; existing local branch only; 422 with git's message if refused |
 | GET | `/api/p/{id}/git/remotes` | `{isRepo, remotes[], branches[]}` as of the last fetch; `hasLocal` per branch |
 | POST | `/api/p/{id}/git/fetch` | `--all --prune`; returns `{output}` |
@@ -35,7 +35,15 @@ UX modeled on VS Code (Welcome tab, Explorer, file tabs, built-in SCM view).
 | GET | `/api/p/{id}/git/stashes` | `{isRepo, stashes[{index, oid, branch, title, auto, time}]}` |
 | POST | `/api/p/{id}/git/stash` | `{message, includeUntracked}`; 422 if there is nothing to stash |
 | POST | `/api/p/{id}/git/stash/{apply,pop,drop}` | `{index, oid}`; refused if `oid` is no longer at `index` |
-| POST | `/api/p/{id}/git/commit` | `{message}`; returns `{oid}`; 422 with git's message on failure |
+| POST | `/api/p/{id}/git/commit` | `{message, amend?}`; returns `{oid}`; with `amend` an empty message keeps the old one; 422 with git's message on failure |
+| POST | `/api/p/{id}/git/undo-commit` | moves the branch back one commit, changes stay staged; returns `{message}`; refused for a root, merge or pushed commit |
+| GET | `/api/p/{id}/git/numstat` | `{staged, changes}`: `{path: {added, removed}}`; no entry for untracked or binary files |
+| GET | `/api/p/{id}/git/tags` | `{isRepo, tags[{name, oid, time, subject}]}` newest first |
+| POST | `/api/p/{id}/git/branches/rename` | `{name, to}`; 204 |
+| POST | `/api/p/{id}/git/branches/delete` | `{name, force?}`; git refuses an unmerged branch without `force`; 204 |
+| POST | `/api/p/{id}/git/remote-branches/delete` | `{name: "origin/x"}`; returns `{output}` |
+| POST | `/api/p/{id}/git/tags/delete`, `/git/tags/push` | `{name}`; push returns `{output}` |
+| POST | `/api/p/{id}/git/merge` | `{name}`; a merge that conflicts is aborted and returns 422 listing the files |
 | POST | `/api/p/{id}/git/{pull,push}` | returns `{output}`; pull is fast-forward only |
 | PUT | `/api/p/{id}/watch?client=` | `{dirs, files}` the client has expanded or open; 404 until its stream is open |
 | GET | `/api/p/{id}/events?client=` | SSE: `ready`, `git`, `file {path}`, `dir {path}`; `client` is a random id the page picks |

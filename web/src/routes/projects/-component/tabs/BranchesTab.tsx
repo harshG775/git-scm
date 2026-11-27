@@ -1,4 +1,5 @@
 import { Fragment, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
     ArrowDown,
     ArrowDownToLine,
@@ -13,6 +14,8 @@ import {
     GitGraph,
     GitMerge,
     Pencil,
+    Plus,
+    RefreshCw,
     Tag,
     Trash2,
     type LucideIcon,
@@ -22,20 +25,28 @@ import { Button } from "#/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "#/components/ui/empty";
 import { Input } from "#/components/ui/input";
 import { ResponsiveDialog } from "#/components/ui/responsive-dialog";
+import { Skeleton } from "#/components/ui/skeleton";
+import { api } from "#/lib/api";
+import { gitBranchesOptions, gitRemotesOptions, gitTagsOptions } from "#/lib/queries";
+import { useGitAction } from "#/lib/use-git-action";
 import { cn } from "#/lib/utils";
 import { ListRow } from "./ListRow";
+import { NoticeBar } from "./NoticeBar";
 import { SearchField } from "./SearchField";
 import { Section, SectionCard } from "./Section";
 import { TabHeader, TooltipIconButton } from "./TabHeader";
 
 type RefKind = "current" | "local" | "merged" | "remote" | "tag";
-type RefStatus = "merged" | "tracked" | "remote only";
 type Ref = {
+    /** what git calls it: "feature/x", "origin/feature/x" or "v1.0" */
     name: string;
     kind: RefKind;
     /** last commit subject, or the tag message */
     subject: string;
-    status?: RefStatus;
+    /** remote branch: a local branch of the same name exists, so checkout switches to it */
+    local?: string;
+    /** remote branch that no local branch tracks yet */
+    remoteOnly?: boolean;
     /** commits ahead of upstream, waiting to be pushed */
     ahead?: number;
     /** commits behind upstream, waiting to be pulled */
@@ -74,50 +85,12 @@ const REF_ACTIONS: Record<RefKind, RefAction[]> = {
     local: [checkout, mergeInto, createFrom, rename, copyName, remove("Delete branch")],
     merged: [checkout, createFrom, rename, copyName, remove("Delete branch")],
     remote: [checkout, mergeInto, createFrom, copyName, remove("Delete remote branch")],
-    tag: [
-        checkout,
-        createFrom,
-        { id: "push-tag", label: "Push tag", icon: ArrowUpFromLine },
-        copyName,
-        remove("Delete tag"),
-    ],
+    // no checkout: that would detach HEAD; "create branch from here" is the way to work on a tag
+    tag: [createFrom, { id: "push-tag", label: "Push tag", icon: ArrowUpFromLine }, copyName, remove("Delete tag")],
 };
 
-const GROUPS: { title: string; empty: { title: string; description: string }; items: Ref[] }[] = [
-    {
-        title: "Local",
-        empty: { title: "No local branches", description: "Create a branch from the current commit." },
-        items: [
-            { name: "main", kind: "current", subject: "feat(files): open files in tabs · 2h", ahead: 1, behind: 2 },
-            {
-                name: "feature/mobile-sidebar",
-                kind: "local",
-                subject: "feat(nav): bottom tab bar · 1d",
-                status: "tracked",
-            },
-            { name: "fix/editor-tabs", kind: "merged", subject: "fix(nav): clamp tab labels · 3d", status: "merged" },
-        ],
-    },
-    {
-        title: "Remotes",
-        empty: { title: "No remotes configured", description: "Add a remote to push and pull." },
-        items: [
-            { name: "origin/main", kind: "remote", subject: "Merge pull request #41 · 3h", status: "tracked" },
-            { name: "origin/release", kind: "remote", subject: "chore(release): 1.2.0 · 4d", status: "remote only" },
-        ],
-    },
-    {
-        title: "Tags",
-        empty: { title: "No tags", description: "Tag a commit to mark a release." },
-        items: [
-            { name: "v1.1.0", kind: "tag", subject: "Release 1.1.0", hash: "c4e8a15" },
-            { name: "v1.0.0", kind: "tag", subject: "Release 1.0.0", hash: "31fa6c4" },
-        ],
-    },
-];
-
 function RefRow({ item, onMenu }: { item: Ref; onMenu: (item: Ref) => void }) {
-    const { name, kind, subject, status, ahead, behind, hash } = item;
+    const { name, kind, subject, remoteOnly, ahead, behind, hash } = item;
     const { icon, tile, className } = REF_ICONS[kind];
     return (
         <ListRow
@@ -148,7 +121,12 @@ function RefRow({ item, onMenu }: { item: Ref; onMenu: (item: Ref) => void }) {
                             {ahead}
                         </span>
                     ) : null}
-                    {status && <Badge variant={status === "tracked" ? "info" : "secondary"}>{status}</Badge>}
+                    {kind === "merged" && <Badge variant="secondary">merged</Badge>}
+                    {kind === "remote" && (
+                        <Badge variant={remoteOnly ? "secondary" : "info"}>
+                            {remoteOnly ? "remote only" : "tracked"}
+                        </Badge>
+                    )}
                     {hash && <span className="font-mono text-xs text-muted-foreground">{hash}</span>}
                 </>
             }
@@ -212,43 +190,49 @@ function RefMenu({
     );
 }
 
-type RefDialogState = { id: "create" | "rename" | "delete"; item: Ref };
+/** `item` is null for "new branch" from the header: it starts at HEAD. */
+type RefDialogState = { id: "create" | "rename" | "delete"; item: Ref | null };
 
 // for the actions that need input or a confirmation: a sheet on the phone layout, a dialog on the desktop layout
 function RefDialog({
     state,
     onClose,
-    onDone,
+    onConfirm,
 }: {
     state: RefDialogState | null;
     onClose: () => void;
-    onDone: (message: string) => void;
+    /** `value` is the typed name for create and rename */
+    onConfirm: (state: RefDialogState, value: string) => void;
 }) {
     const [value, setValue] = useState("");
     const [lastState, setLastState] = useState(state);
     // start each open with a fresh field: the current name for rename, empty for a new branch
     if (state !== lastState) {
         setLastState(state);
-        if (state) setValue(state.id === "rename" ? state.item.name : "");
+        if (state) setValue(state.id === "rename" ? (state.item?.name ?? "") : "");
     }
     const shown = state ?? lastState;
-    const name = shown?.item.name ?? "";
-    const isTag = shown?.item.kind === "tag";
-    const isRemote = shown?.item.kind === "remote";
-    const noun = isTag ? "tag" : isRemote ? "remote branch" : "branch";
-
-    const title =
-        shown?.id === "create" ? "Create branch" : shown?.id === "rename" ? "Rename branch" : `Delete ${noun}?`;
-    const description =
-        shown?.id === "create"
-            ? `Starts from ${name} and switches to it.`
-            : shown?.id === "rename"
-              ? `Choose a new name for ${name}.`
-              : `${name} will be deleted. This cannot be undone.`;
-    const preview = (verb: string) =>
-        onDone(`${verb} "${shown?.id === "create" ? value.trim() : name}" is a UI preview.`);
-
+    const name = shown?.item?.name ?? "";
+    const kind = shown?.item?.kind;
+    const noun = kind === "tag" ? "tag" : kind === "remote" ? "remote branch" : "branch";
     const creating = shown?.id === "create";
+
+    const title = creating ? "Create branch" : shown?.id === "rename" ? "Rename branch" : `Delete ${noun}?`;
+    const deleteWarning =
+        kind === "local"
+            ? "It has commits that are not merged into the current branch. They will be lost."
+            : kind === "merged"
+              ? "It is fully merged, so no commits are lost."
+              : kind === "remote"
+                ? "It is removed from the remote. Others lose it on their next fetch."
+                : "It is removed locally. Remote copies stay until you delete them there.";
+    const description = creating
+        ? name
+            ? `Starts from ${name} and switches to it.`
+            : "Starts from the current commit and switches to it."
+        : shown?.id === "rename"
+          ? `Choose a new name for ${name}.`
+          : `${name} will be deleted. ${deleteWarning}`;
 
     return (
         <ResponsiveDialog
@@ -262,7 +246,7 @@ function RefDialog({
                     <Button type="button" variant="outline" onClick={onClose}>
                         Cancel
                     </Button>
-                    <Button type="button" variant="destructive" onClick={() => preview("Delete")}>
+                    <Button type="button" variant="destructive" onClick={() => shown && onConfirm(shown, "")}>
                         Delete {noun}
                     </Button>
                 </div>
@@ -271,7 +255,7 @@ function RefDialog({
                     className="space-y-4 px-5 py-4"
                     onSubmit={(event) => {
                         event.preventDefault();
-                        preview(creating ? "Create" : "Rename");
+                        if (shown && value.trim() && value.trim() !== name) onConfirm(shown, value.trim());
                     }}
                 >
                     <label className="sr-only" htmlFor="ref-name">
@@ -291,7 +275,7 @@ function RefDialog({
                         <Button type="button" variant="outline" onClick={onClose}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={!value.trim() || value.trim() === name}>
+                        <Button type="submit" disabled={!value.trim() || (!creating && value.trim() === name)}>
                             {creating ? "Create branch" : "Rename"}
                         </Button>
                     </div>
@@ -301,49 +285,191 @@ function RefDialog({
     );
 }
 
-export function BranchesTab({ onOpenGraph }: { onOpenGraph: () => void }) {
+export function BranchesTab({ projectId, onOpenGraph }: { projectId: string; onOpenGraph: () => void }) {
+    const branches = useQuery(gitBranchesOptions(projectId));
+    const remotes = useQuery(gitRemotesOptions(projectId));
+    const tags = useQuery(gitTagsOptions(projectId));
+    const { run, busy, notice, setNotice } = useGitAction(projectId);
+
     const [query, setQuery] = useState("");
-    const [notice, setNotice] = useState("");
-    const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-        Local: true,
-        Remotes: true,
-        Tags: false,
-    });
-    const search = query.trim().toLocaleLowerCase();
-    const filteredGroups = GROUPS.map((group) => ({
-        ...group,
-        items: group.items.filter(({ name }) => name.toLocaleLowerCase().includes(search)),
-    }));
+    const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ Local: true, Remotes: true, Tags: false });
     // one sheet and one dialog for the whole tab; a row's ... button picks which ref they act on
     const [selected, setSelected] = useState<Ref | null>(null);
     const [sheetOpen, setSheetOpen] = useState(false);
     const [dialog, setDialog] = useState<RefDialogState | null>(null);
+
+    const header = (
+        <TabHeader
+            title="Branches"
+            leadingAction={
+                <>
+                    <TooltipIconButton label="Open Git Graph" icon={GitGraph} onClick={onOpenGraph} />
+                    <TooltipIconButton
+                        label="Fetch from remotes"
+                        icon={RefreshCw}
+                        onClick={() => run(() => api.gitFetch(projectId).then((r) => r.output || "Fetched."))}
+                    />
+                </>
+            }
+            action={
+                <TooltipIconButton
+                    label="New branch"
+                    icon={Plus}
+                    onClick={() => setDialog({ id: "create", item: null })}
+                />
+            }
+        />
+    );
+
+    const failed = branches.error ?? remotes.error ?? tags.error;
+    const branchData = branches.data;
+    const remoteData = remotes.data;
+    const tagData = tags.data;
+    if (failed) {
+        return (
+            <>
+                {header}
+                <p role="alert" className="px-3 text-sm text-destructive">
+                    {failed.message}{" "}
+                    <button
+                        type="button"
+                        className="underline"
+                        onClick={() => void Promise.all([branches.refetch(), remotes.refetch(), tags.refetch()])}
+                    >
+                        Retry
+                    </button>
+                </p>
+            </>
+        );
+    }
+    if (!branchData || !remoteData || !tagData) {
+        return (
+            <>
+                {header}
+                <div role="status" aria-label="Loading branches" className="space-y-3 px-3">
+                    <Skeleton className="h-10 rounded-lg" />
+                    <Skeleton className="h-40 rounded-xl" />
+                </div>
+            </>
+        );
+    }
+    if (!branchData.isRepo) {
+        return (
+            <>
+                {header}
+                <div className="px-3">
+                    <Empty>
+                        <EmptyHeader>
+                            <EmptyTitle>Not a Git repository</EmptyTitle>
+                            <EmptyDescription>Run git init in this folder to start using branches.</EmptyDescription>
+                        </EmptyHeader>
+                    </Empty>
+                </div>
+            </>
+        );
+    }
+
+    const groups: { title: string; empty: { title: string; description: string }; items: Ref[] }[] = [
+        {
+            title: "Local",
+            empty: {
+                title: "No local branches",
+                description: "Commit something, or create a branch from the current commit.",
+            },
+            items: branchData.branches.map((b) => ({
+                name: b.name,
+                kind: b.current ? "current" : b.merged ? "merged" : "local",
+                subject: b.subject,
+                ahead: b.ahead,
+                behind: b.behind,
+            })),
+        },
+        {
+            title: "Remotes",
+            empty: remoteData.remotes.length
+                ? { title: "No remote branches", description: "Fetch to see what's on the remote." }
+                : { title: "No remotes configured", description: "Add a remote to push and pull." },
+            items: remoteData.branches.map((b) => ({
+                name: b.ref,
+                kind: "remote",
+                subject: b.subject,
+                local: b.hasLocal ? b.name : undefined,
+                remoteOnly: !b.hasLocal,
+            })),
+        },
+        {
+            title: "Tags",
+            empty: { title: "No tags", description: "Tag a commit to mark a release." },
+            items: tagData.tags.map((t) => ({ name: t.name, kind: "tag", subject: t.subject, hash: t.oid })),
+        },
+    ];
+
+    const search = query.trim().toLocaleLowerCase();
+    const filteredGroups = groups.map((group) => ({
+        ...group,
+        items: group.items.filter(({ name }) => name.toLocaleLowerCase().includes(search)),
+    }));
+
     const openMenu = (item: Ref) => {
         setSelected(item);
         setSheetOpen(true);
     };
     const chooseAction = (id: ActionId) => {
         if (!selected) return;
+        const item = selected;
         setSheetOpen(false);
-        if (id === "create" || id === "rename" || id === "delete") {
-            setDialog({ id, item: selected });
-            return;
+        switch (id) {
+            case "create":
+            case "rename":
+            case "delete":
+                setDialog({ id, item });
+                break;
+            case "copy":
+                navigator.clipboard?.writeText(item.name).then(
+                    () => setNotice({ kind: "ok", text: `Copied "${item.name}".` }),
+                    () => setNotice({ kind: "error", text: "Could not copy to the clipboard." }),
+                );
+                break;
+            case "checkout":
+                run(() =>
+                    item.kind === "remote" && !item.local
+                        ? api.gitCheckoutRemote(projectId, item.name)
+                        : api.gitCheckout(projectId, item.local ?? item.name),
+                );
+                break;
+            case "merge":
+                run(() => api.gitMerge(projectId, item.name).then((r) => r.output || `Merged ${item.name}.`));
+                break;
+            case "pull":
+                run(() => api.gitPull(projectId).then((r) => r.output || "Already up to date."));
+                break;
+            case "push":
+                run(() => api.gitPush(projectId).then((r) => r.output || "Pushed."));
+                break;
+            case "push-tag":
+                run(() => api.gitPushTag(projectId, item.name).then((r) => r.output || `Pushed ${item.name}.`));
+                break;
         }
-        if (id === "copy") {
-            navigator.clipboard?.writeText(selected.name).catch(() => {});
-            setNotice(`Copied "${selected.name}".`);
-            return;
+    };
+    const confirmDialog = ({ id, item }: RefDialogState, value: string) => {
+        setDialog(null);
+        if (id === "create") run(() => api.gitCreateBranch(projectId, value, item?.name));
+        else if (id === "rename" && item) run(() => api.gitRenameBranch(projectId, item.name, value));
+        else if (id === "delete" && item) {
+            run(() =>
+                item.kind === "tag"
+                    ? api.gitDeleteTag(projectId, item.name)
+                    : item.kind === "remote"
+                      ? api.gitDeleteRemoteBranch(projectId, item.name)
+                      : // a branch that is not merged was confirmed in the dialog, so git may drop it
+                        api.gitDeleteBranch(projectId, item.name, item.kind === "local"),
+            );
         }
-        const label = REF_ACTIONS[selected.kind].find((action) => action.id === id)?.label;
-        setNotice(`${label} "${selected.name}" is a UI preview. Nothing was changed.`);
     };
 
     return (
         <>
-            <TabHeader
-                title="Branches"
-                leadingAction={<TooltipIconButton label="Open Git Graph" icon={GitGraph} onClick={onOpenGraph} />}
-            />
+            {header}
             <div className="flex px-3 pb-2">
                 <SearchField
                     id="branch-search"
@@ -353,11 +479,7 @@ export function BranchesTab({ onOpenGraph }: { onOpenGraph: () => void }) {
                     placeholder="Search branches and tags"
                 />
             </div>
-            {notice && (
-                <p role="status" className="px-3 pb-2 text-xs text-muted-foreground">
-                    {notice}
-                </p>
-            )}
+            <NoticeBar notice={notice} onDismiss={() => setNotice(null)} />
             {filteredGroups.map(({ title, items, empty }) => (
                 <Section
                     key={title}
@@ -385,15 +507,8 @@ export function BranchesTab({ onOpenGraph }: { onOpenGraph: () => void }) {
                     )}
                 </Section>
             ))}
-            <RefMenu item={selected} open={sheetOpen} onOpenChange={setSheetOpen} onAction={chooseAction} />
-            <RefDialog
-                state={dialog}
-                onClose={() => setDialog(null)}
-                onDone={(message) => {
-                    setDialog(null);
-                    setNotice(`${message} Nothing was changed.`);
-                }}
-            />
+            <RefMenu item={selected} open={sheetOpen && !busy} onOpenChange={setSheetOpen} onAction={chooseAction} />
+            <RefDialog state={dialog} onClose={() => setDialog(null)} onConfirm={confirmDialog} />
         </>
     );
 }

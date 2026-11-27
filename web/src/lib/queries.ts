@@ -20,6 +20,12 @@ export const gitStatusOptions = (projectId: string) =>
         queryFn: () => api.gitStatus(projectId),
     });
 
+export const gitNumstatOptions = (projectId: string) =>
+    queryOptions({
+        queryKey: ["git", projectId, "numstat"],
+        queryFn: () => api.gitNumstat(projectId),
+    });
+
 export const gitBranchesOptions = (projectId: string) =>
     queryOptions({
         queryKey: ["git", projectId, "branches"],
@@ -30,6 +36,12 @@ export const gitRemotesOptions = (projectId: string) =>
     queryOptions({
         queryKey: ["git", projectId, "remotes"],
         queryFn: () => api.gitRemotes(projectId),
+    });
+
+export const gitTagsOptions = (projectId: string) =>
+    queryOptions({
+        queryKey: ["git", projectId, "tags"],
+        queryFn: () => api.gitTags(projectId),
     });
 
 export const gitStashesOptions = (projectId: string) =>

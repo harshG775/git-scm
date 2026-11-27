@@ -1,135 +1,212 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
     Archive,
     ArchiveRestore,
-    Check,
-    Ellipsis,
     GitCommitVertical,
+    List,
+    ListTree,
     Minus,
     Play,
     Plus,
     Trash2,
     Undo2,
 } from "lucide-react";
-import { Button, buttonVariants } from "#/components/ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "#/components/ui/dropdown-menu";
+import { Button } from "#/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "#/components/ui/empty";
 import { Input } from "#/components/ui/input";
 import { NativeDialog } from "#/components/ui/native-dialog";
+import { Skeleton } from "#/components/ui/skeleton";
 import { FileTree, type TreeEntry, type TreeNode } from "#/components/file-tree/file-tree";
 import { StatusLetter } from "#/components/file-tree/status-letter";
 import { Textarea } from "#/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
+import { api, type GitChange, type GitLines, type GitStash } from "#/lib/api";
+import { gitBranchesOptions, gitNumstatOptions, gitStashesOptions, gitStatusOptions } from "#/lib/queries";
+import { timeAgo } from "#/lib/time";
+import { useGitAction } from "#/lib/use-git-action";
 import { cn } from "#/lib/utils";
 import { ListRow } from "./ListRow";
+import { NoticeBar } from "./NoticeBar";
 import { Section, SectionCard } from "./Section";
-import { TabHeader } from "./TabHeader";
+import { TabHeader, TooltipIconButton } from "./TabHeader";
 
 type ChangesView = "list" | "tree";
 type ChangeFile = { path: string; status: string; added?: number; removed?: number };
 
-const STAGED_FILES: ChangeFile[] = [
-    { path: "src/main.tsx", status: "M", added: 4, removed: 2 },
-    { path: "README.md", status: "M", added: 1, removed: 1 },
-];
-const CHANGED_FILES: ChangeFile[] = [
-    { path: "src/styles.css", status: "M", added: 2, removed: 1 },
-    { path: "web/src/routes.tsx", status: "M", added: 6, removed: 3 },
-    { path: "notes.md", status: "U" },
-];
 const COMMIT_TYPES = ["feat", "fix", "docs", "refactor", "test", "chore"];
-const STASHES = [
-    { message: "WIP on main: update mobile navigation", branch: "main", age: "10 minutes ago" },
-    { message: "Save editor layout experiment", branch: "feature/editor-layout", age: "Yesterday" },
-];
+const TYPE_PREFIX = /^(feat|fix|docs|refactor|test|chore)(\([^)]*\))?:\s*/;
+
+const toFiles = (changes: GitChange[], counts?: Record<string, GitLines>): ChangeFile[] =>
+    changes.map(({ path, status }) => ({
+        path,
+        status,
+        added: counts?.[path]?.added,
+        removed: counts?.[path]?.removed,
+    }));
 
 // every file path at or below a tree row (a file row is just itself)
 const nodePaths = (node: TreeNode<ChangeFile>): string[] =>
     node.kind === "file" ? (node.entry?.data ? [node.entry.data.path] : []) : node.children.flatMap(nodePaths);
 
-export function ChangesTab() {
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+export function ChangesTab({
+    projectId,
+    activePath,
+    onOpenFile,
+}: {
+    projectId: string;
+    /** path of the file shown in the editor, highlighted in the lists */
+    activePath?: string;
+    onOpenFile: (path: string, pin?: boolean) => void;
+}) {
+    const status = useQuery(gitStatusOptions(projectId));
+    const { data: numstat } = useQuery(gitNumstatOptions(projectId));
+    const { data: branches } = useQuery(gitBranchesOptions(projectId));
+    const { data: stashList } = useQuery(gitStashesOptions(projectId));
+    const { run, busy, notice, setNotice } = useGitAction(projectId);
+
     const [changesView, setChangesView] = useState<ChangesView>("list");
     const [commitMessage, setCommitMessage] = useState("");
+    const [amend, setAmend] = useState(false);
     const [stashMessage, setStashMessage] = useState("");
-    const [amendLastCommit, setAmendLastCommit] = useState(false);
     const [includeUntracked, setIncludeUntracked] = useState(true);
-    const [notice, setNotice] = useState("");
-    const [staged, setStaged] = useState(STAGED_FILES);
-    const [changed, setChanged] = useState(CHANGED_FILES);
-    // paths waiting on the discard confirmation
+    // what a confirm dialog is asking about
     const [discarding, setDiscarding] = useState<string[] | null>(null);
-    const stashFileCount = changed.filter(({ status }) => status !== "U" || includeUntracked).length;
+    const [droppingStash, setDroppingStash] = useState<GitStash | null>(null);
+    const [undoing, setUndoing] = useState(false);
 
-    // preview only: moves rows between the two lists, nothing touches git
-    const stage = (paths: string[]) => {
-        const moving = changed.filter((file) => paths.includes(file.path));
-        setChanged((current) => current.filter((file) => !paths.includes(file.path)));
-        setStaged((current) => [...current, ...moving]);
-    };
-    const unstage = (paths: string[]) => {
-        const moving = staged.filter((file) => paths.includes(file.path));
-        setStaged((current) => current.filter((file) => !paths.includes(file.path)));
-        setChanged((current) => [...current, ...moving]);
-    };
+    const header = (
+        <TabHeader
+            title="Changes"
+            action={
+                <TooltipIconButton
+                    label={changesView === "tree" ? "View as list" : "View as tree"}
+                    icon={changesView === "tree" ? List : ListTree}
+                    onClick={() => setChangesView(changesView === "tree" ? "list" : "tree")}
+                />
+            }
+        />
+    );
+
+    if (status.isPending) {
+        return (
+            <>
+                {header}
+                <div role="status" aria-label="Loading changes" className="space-y-3 px-3">
+                    <Skeleton className="h-40 rounded-2xl" />
+                    <Skeleton className="h-24 rounded-xl" />
+                </div>
+            </>
+        );
+    }
+    if (status.error) {
+        return (
+            <>
+                {header}
+                <p role="alert" className="px-3 text-sm text-destructive">
+                    {status.error.message}{" "}
+                    <button type="button" className="underline" onClick={() => status.refetch()}>
+                        Retry
+                    </button>
+                </p>
+            </>
+        );
+    }
+    if (!status.data.isRepo) {
+        return (
+            <>
+                {header}
+                <div className="px-3">
+                    <Empty>
+                        <EmptyHeader>
+                            <EmptyTitle>Not a Git repository</EmptyTitle>
+                            <EmptyDescription>Run git init in this folder to start tracking changes.</EmptyDescription>
+                        </EmptyHeader>
+                    </Empty>
+                </div>
+            </>
+        );
+    }
+
+    const staged = toFiles(status.data.staged, numstat?.staged);
+    // conflicts are listed with the changes; staging one marks it resolved
+    const changed = toFiles([...status.data.conflicts, ...status.data.changes], numstat?.changes);
+    const stashes = stashList?.stashes ?? [];
+    const lastCommit = branches?.branches.find((b) => b.current)?.subject;
+
+    const stage = (paths: string[]) => run(() => api.gitStage(projectId, paths));
+    const unstage = (paths: string[]) => run(() => api.gitUnstage(projectId, paths));
     const confirmDiscard = () => {
-        if (!discarding) return;
-        setChanged((current) => current.filter((file) => !discarding.includes(file.path)));
+        const paths = discarding;
         setDiscarding(null);
-        setNotice("Discard is a UI preview. No files were changed on disk.");
+        if (paths) run(() => api.gitDiscard(projectId, paths));
     };
-    const [stashes, setStashes] = useState(STASHES);
-    const [droppingStash, setDroppingStash] = useState<string | null>(null);
-    const [stashNotice, setStashNotice] = useState("");
-    // preview only: apply keeps the stash, pop and drop remove it
-    const applyStash = (message: string) => setStashNotice(`Applied "${message}". UI preview, no files were changed.`);
-    const popStash = (message: string) => {
-        setStashes((current) => current.filter((stash) => stash.message !== message));
-        setStashNotice(`Popped "${message}". UI preview, no files were changed.`);
-    };
-    const confirmDrop = () => {
-        const message = droppingStash;
-        setDroppingStash(null);
-        if (!message) return;
-        setStashes((current) => current.filter((stash) => stash.message !== message));
-        setStashNotice(`Dropped "${message}". UI preview, nothing was deleted.`);
-    };
-    const discardingUntracked = changed.some(({ path, status }) => discarding?.includes(path) && status === "U");
 
+    const canCommit = !busy && (amend || (staged.length > 0 && commitMessage.trim() !== ""));
+    // say why the button is disabled instead of leaving it dead
+    const commitHint = amend
+        ? "Folds the staged changes into the last commit"
+        : staged.length === 0
+          ? "Stage at least one change to commit"
+          : commitMessage.trim() === ""
+            ? "Write a commit message"
+            : "";
     const submitCommit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        setNotice("Commit is a UI preview. No changes were committed.");
+        if (!canCommit) return;
+        run(async () => {
+            const { oid } = await api.gitCommit(projectId, commitMessage, amend);
+            setCommitMessage("");
+            setAmend(false);
+            return `${amend ? "Amended" : "Committed"} ${oid}`;
+        });
     };
+    const confirmUndo = () => {
+        setUndoing(false);
+        run(async () => {
+            const { message } = await api.gitUndoCommit(projectId);
+            setCommitMessage(message.trim());
+            return "Commit undone. Its changes are staged again.";
+        });
+    };
+    const addCommitType = (type: string) => setCommitMessage(`${type}: ${commitMessage.replace(TYPE_PREFIX, "")}`);
 
-    // preview only: the stashed files leave the Changes list and a stash row appears
+    // git stashes tracked changes (staged and unstaged); untracked files only when asked
+    const stashCount = new Set([
+        ...staged.map((f) => f.path),
+        ...changed.filter((f) => f.status !== "U" || includeUntracked).map((f) => f.path),
+    ]).size;
     const submitStash = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        const message = stashMessage.trim() || "WIP on main";
-        setChanged((current) => current.filter(({ status }) => status === "U" && !includeUntracked));
-        setStashes((current) => [{ message, branch: "main", age: "Just now" }, ...current]);
-        setStashMessage("");
-        setStashNotice(
-            `Stashed ${stashFileCount} ${stashFileCount === 1 ? "file" : "files"}. UI preview, nothing was saved.`,
-        );
+        if (busy || stashCount === 0) return;
+        run(async () => {
+            await api.gitStash(projectId, stashMessage.trim(), includeUntracked);
+            setStashMessage("");
+            return `Stashed ${plural(stashCount, "file")}.`;
+        });
     };
-
-    const addCommitType = (type: string) => {
-        const message = commitMessage.replace(/^(feat|fix|docs|refactor|test|chore):\s*/, "");
-        setCommitMessage(`${type}: ${message}`);
+    const confirmDrop = () => {
+        const stash = droppingStash;
+        setDroppingStash(null);
+        if (stash) run(() => api.gitStashDrop(projectId, stash.index, stash.oid).then(() => "Stash dropped."));
     };
 
     const sections = [
         {
             title: "Staged Changes",
             files: staged,
-            // per-row and per-section buttons
-            rowActions: (paths: string[]) => <RowButton label="Unstage" icon={Minus} onClick={() => unstage(paths)} />,
+            rowActions: (paths: string[]) => (
+                <RowButton label="Unstage" icon={Minus} disabled={busy} onClick={() => unstage(paths)} />
+            ),
             headerActions: (
-                <RowButton bare label="Unstage all" icon={Minus} onClick={() => unstage(staged.map((f) => f.path))} />
+                <RowButton
+                    bare
+                    label="Unstage all"
+                    icon={Minus}
+                    disabled={busy}
+                    onClick={() => unstage(staged.map((f) => f.path))}
+                />
             ),
         },
         {
@@ -137,8 +214,14 @@ export function ChangesTab() {
             files: changed,
             rowActions: (paths: string[]) => (
                 <>
-                    <RowButton label="Discard" icon={Undo2} danger onClick={() => setDiscarding(paths)} />
-                    <RowButton label="Stage" icon={Plus} accent onClick={() => stage(paths)} />
+                    <RowButton
+                        label="Discard"
+                        icon={Undo2}
+                        danger
+                        disabled={busy}
+                        onClick={() => setDiscarding(paths)}
+                    />
+                    <RowButton label="Stage" icon={Plus} accent disabled={busy} onClick={() => stage(paths)} />
                 </>
             ),
             headerActions: (
@@ -148,6 +231,7 @@ export function ChangesTab() {
                         label="Discard all"
                         icon={Undo2}
                         danger
+                        disabled={busy}
                         onClick={() => setDiscarding(changed.map((f) => f.path))}
                     />
                     <RowButton
@@ -155,6 +239,7 @@ export function ChangesTab() {
                         label="Stage all"
                         icon={Plus}
                         accent
+                        disabled={busy}
                         onClick={() => stage(changed.map((f) => f.path))}
                     />
                 </>
@@ -162,41 +247,15 @@ export function ChangesTab() {
         },
     ];
 
+    const discardingUntracked = changed.some(({ path, status }) => discarding?.includes(path) && status === "U");
+
     return (
         <>
-            <TabHeader
-                title="Changes"
-                action={
-                    <DropdownMenu>
-                        <Tooltip>
-                            <TooltipTrigger
-                                render={
-                                    <DropdownMenuTrigger
-                                        className={buttonVariants({ variant: "ghost", size: "icon" })}
-                                        aria-label="Change view options"
-                                    />
-                                }
-                            >
-                                <Ellipsis aria-hidden="true" />
-                            </TooltipTrigger>
-                            <TooltipContent>Change view options</TooltipContent>
-                        </Tooltip>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setChangesView("list")}>
-                                View as List
-                                {changesView === "list" && <Check className="ml-auto" aria-hidden="true" />}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setChangesView("tree")}>
-                                View as Tree
-                                {changesView === "tree" && <Check className="ml-auto" aria-hidden="true" />}
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                }
-            />
+            {header}
+            <NoticeBar notice={notice} onDismiss={() => setNotice(null)} />
             <section className="mx-3 mb-2 rounded-2xl border bg-card p-3">
                 <form onSubmit={submitCommit} className="space-y-3">
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="scrollbar-none -mx-3 flex gap-1.5 overflow-x-auto px-3">
                         {COMMIT_TYPES.map((type) => (
                             <Button
                                 key={type}
@@ -204,6 +263,7 @@ export function ChangesTab() {
                                 onClick={() => addCommitType(type)}
                                 variant="outline"
                                 size="sm"
+                                className="shrink-0 rounded-full font-mono text-xs"
                             >
                                 {type}
                             </Button>
@@ -216,31 +276,33 @@ export function ChangesTab() {
                         id="commit-message"
                         value={commitMessage}
                         onChange={(event) => setCommitMessage(event.target.value)}
-                        placeholder="Commit message"
-                        rows={2}
+                        placeholder={amend ? "New message (empty keeps the last one)" : "Commit message"}
+                        rows={1}
+                        className="max-h-24 min-h-10 md:min-h-8"
                     />
-                    <Button
-                        type="submit"
-                        size="lg"
-                        disabled={!commitMessage.trim() || staged.length === 0}
-                        className="w-full"
-                    >
+                    <Button type="submit" size="lg" disabled={!canCommit} className="w-full">
                         <GitCommitVertical className="size-4" aria-hidden="true" />
-                        Commit {staged.length} {staged.length === 1 ? "file" : "files"}
+                        {amend
+                            ? "Amend Last Commit"
+                            : staged.length
+                              ? `Commit Changes to ${plural(staged.length, "File")}`
+                              : "Commit Changes"}
                     </Button>
+                    {commitHint && <p className="-mt-1 text-xs text-muted-foreground">{commitHint}</p>}
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                         <label className="flex min-h-8 items-center gap-2 text-muted-foreground">
                             <input
                                 type="checkbox"
-                                checked={amendLastCommit}
-                                onChange={(event) => setAmendLastCommit(event.target.checked)}
-                                className="size-4 accent-sidebar-primary"
+                                checked={amend}
+                                onChange={(event) => setAmend(event.target.checked)}
+                                className="size-4 accent-primary"
                             />
                             Amend last commit
                         </label>
                         <Button
                             type="button"
-                            onClick={() => setNotice("Undo last commit is a UI preview. No changes were made.")}
+                            disabled={busy || !lastCommit}
+                            onClick={() => setUndoing(true)}
                             variant="link"
                             className="text-destructive"
                         >
@@ -248,12 +310,6 @@ export function ChangesTab() {
                         </Button>
                     </div>
                 </form>
-
-                {notice && (
-                    <p role="status" className="mt-3 text-xs text-muted-foreground">
-                        {notice}
-                    </p>
-                )}
             </section>
 
             {sections.map(({ title, files, rowActions, headerActions }) => (
@@ -268,8 +324,16 @@ export function ChangesTab() {
                         ) : (
                             <Empty>
                                 <EmptyHeader>
-                                    <EmptyTitle>Working tree clean</EmptyTitle>
-                                    <EmptyDescription>Last commit: feat(files): open files in tabs</EmptyDescription>
+                                    <EmptyTitle>
+                                        {staged.length ? "Everything is staged" : "Working tree clean"}
+                                    </EmptyTitle>
+                                    <EmptyDescription>
+                                        {staged.length
+                                            ? "Write a message and commit."
+                                            : lastCommit
+                                              ? `Last commit: ${lastCommit}`
+                                              : "No commits yet."}
+                                    </EmptyDescription>
                                 </EmptyHeader>
                             </Empty>
                         )
@@ -282,6 +346,10 @@ export function ChangesTab() {
                                 defaultOpen
                                 showFolderCount
                                 strongNames
+                                selectedPath={activePath}
+                                // a deleted file has nothing to open
+                                onSelect={(entry) => entry.data?.status !== "D" && onOpenFile(entry.path)}
+                                onOpen={(entry) => entry.data?.status !== "D" && onOpenFile(entry.path, true)}
                                 renderMeta={({ entry }) => entry?.data && <ChangeMeta file={entry.data} />}
                                 renderActions={(node) => rowActions(nodePaths(node))}
                             />
@@ -289,6 +357,7 @@ export function ChangesTab() {
                     )}
                 </Section>
             ))}
+
             <Section title="Stashes" count={stashes.length} defaultOpen={false}>
                 <div className="space-y-3">
                     <SectionCard className="p-3">
@@ -302,14 +371,12 @@ export function ChangesTab() {
                                 onChange={(event) => setStashMessage(event.target.value)}
                                 placeholder="Stash message (optional)"
                             />
-                            <Button type="submit" size="lg" disabled={stashFileCount === 0} className="w-full">
+                            <Button type="submit" size="lg" disabled={busy || stashCount === 0} className="w-full">
                                 <Archive className="size-4" aria-hidden="true" />
-                                Stash {stashFileCount} {stashFileCount === 1 ? "file" : "files"}
+                                Stash {plural(stashCount, "file")}
                             </Button>
                             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                                <span className="text-muted-foreground">
-                                    {stashFileCount} {stashFileCount === 1 ? "file" : "files"} selected
-                                </span>
+                                <span className="text-muted-foreground">{plural(stashCount, "file")} selected</span>
                                 <label className="flex min-h-8 items-center gap-2 text-muted-foreground">
                                     <input
                                         type="checkbox"
@@ -331,14 +398,26 @@ export function ChangesTab() {
                         </Empty>
                     ) : (
                         <SectionCard>
-                            {stashes.map(({ message, branch, age }) => (
-                                <ListRow key={message} icon={Archive} title={message} subtitle={`${branch} · ${age}`}>
+                            {stashes.map((stash) => (
+                                <ListRow
+                                    key={stash.oid}
+                                    icon={Archive}
+                                    title={stash.title}
+                                    subtitle={`${stash.branch} · ${timeAgo(stash.time)}`}
+                                >
                                     <div className="mt-2 flex gap-2">
                                         <Button
                                             type="button"
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => applyStash(message)}
+                                            disabled={busy}
+                                            onClick={() =>
+                                                run(() =>
+                                                    api
+                                                        .gitStashApply(projectId, stash.index, stash.oid)
+                                                        .then(() => "Stash applied. It is kept in the list."),
+                                                )
+                                            }
                                         >
                                             <Play aria-hidden="true" />
                                             Apply
@@ -347,7 +426,14 @@ export function ChangesTab() {
                                             type="button"
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => popStash(message)}
+                                            disabled={busy}
+                                            onClick={() =>
+                                                run(() =>
+                                                    api
+                                                        .gitStashPop(projectId, stash.index, stash.oid)
+                                                        .then(() => "Stash popped. Its changes are back in your tree."),
+                                                )
+                                            }
                                         >
                                             <ArchiveRestore aria-hidden="true" />
                                             Pop
@@ -356,8 +442,9 @@ export function ChangesTab() {
                                             type="button"
                                             variant="outline"
                                             size="sm"
+                                            disabled={busy}
                                             className="text-destructive"
-                                            onClick={() => setDroppingStash(message)}
+                                            onClick={() => setDroppingStash(stash)}
                                         >
                                             <Trash2 aria-hidden="true" />
                                             Drop
@@ -367,13 +454,9 @@ export function ChangesTab() {
                             ))}
                         </SectionCard>
                     )}
-                    {stashNotice && (
-                        <p role="status" className="text-xs text-muted-foreground">
-                            {stashNotice}
-                        </p>
-                    )}
                 </div>
             </Section>
+
             <NativeDialog
                 open={discarding !== null}
                 onOpenChange={(open) => !open && setDiscarding(null)}
@@ -389,7 +472,7 @@ export function ChangesTab() {
                         Cancel
                     </Button>
                     <Button type="button" variant="destructive" onClick={confirmDiscard}>
-                        Discard {discarding?.length} {discarding?.length === 1 ? "file" : "files"}
+                        Discard {plural(discarding?.length ?? 0, "file")}
                     </Button>
                 </div>
             </NativeDialog>
@@ -397,7 +480,7 @@ export function ChangesTab() {
                 open={droppingStash !== null}
                 onOpenChange={(open) => !open && setDroppingStash(null)}
                 title="Drop stash?"
-                description={`"${droppingStash ?? ""}" will be deleted. This cannot be undone.`}
+                description={`"${droppingStash?.title ?? ""}" will be deleted. This cannot be undone.`}
             >
                 <div className="flex justify-end gap-2 px-5 py-4">
                     <Button type="button" variant="outline" onClick={() => setDroppingStash(null)}>
@@ -405,6 +488,21 @@ export function ChangesTab() {
                     </Button>
                     <Button type="button" variant="destructive" onClick={confirmDrop}>
                         Drop stash
+                    </Button>
+                </div>
+            </NativeDialog>
+            <NativeDialog
+                open={undoing}
+                onOpenChange={setUndoing}
+                title="Undo last commit?"
+                description={`"${lastCommit ?? ""}" is removed. Its changes come back as staged files and the message returns to the box.`}
+            >
+                <div className="flex justify-end gap-2 px-5 py-4">
+                    <Button type="button" variant="outline" onClick={() => setUndoing(false)}>
+                        Cancel
+                    </Button>
+                    <Button type="button" onClick={confirmUndo}>
+                        Undo commit
                     </Button>
                 </div>
             </NativeDialog>
@@ -419,6 +517,7 @@ function RowButton({
     danger,
     accent,
     bare,
+    disabled,
 }: {
     label: string;
     icon: typeof Plus;
@@ -427,18 +526,24 @@ function RowButton({
     accent?: boolean;
     /** no border, for buttons in a section header */
     bare?: boolean;
+    disabled?: boolean;
 }) {
     return (
         <Button
             type="button"
             variant={bare ? "ghost" : "outline"}
-            size="icon-sm"
+            size="icon"
             aria-label={label}
             title={label}
+            disabled={disabled}
             onClick={onClick}
             className={cn(
+                !bare && "size-9",
                 danger && "text-destructive",
-                accent && (bare ? "text-primary" : "border-primary/40 bg-primary/15 text-primary"),
+                accent &&
+                    (bare
+                        ? "text-primary"
+                        : "border-primary/40 bg-primary/15 text-primary dark:border-primary/40 dark:bg-primary/15"),
             )}
         >
             <Icon aria-hidden="true" />

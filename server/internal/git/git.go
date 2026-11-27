@@ -172,11 +172,54 @@ func (r Repo) Discard(ctx context.Context, paths []string) error {
 }
 
 // Commit records the staged changes. The message goes over stdin so it is never parsed as a flag.
-func (r Repo) Commit(ctx context.Context, message string) (string, error) {
-	if _, err := r.run(ctx, opts{stdin: message}, "commit", "-q", "-F", "-"); err != nil {
+// With amend the last commit is rewritten instead; an empty message then keeps the old one.
+func (r Repo) Commit(ctx context.Context, message string, amend bool) (string, error) {
+	args := []string{"commit", "-q"}
+	o := opts{}
+	switch {
+	case amend && strings.TrimSpace(message) == "":
+		args = append(args, "--amend", "--no-edit")
+	case amend:
+		args = append(args, "--amend", "-F", "-")
+		o.stdin = message
+	default:
+		args = append(args, "-F", "-")
+		o.stdin = message
+	}
+	if _, err := r.run(ctx, o, args...); err != nil {
 		return "", err
 	}
 	return r.git(ctx, "rev-parse", "--short", "HEAD")
+}
+
+// UndoCommit takes the last commit back: the branch moves to its parent and the commit's changes
+// stay staged. It returns the commit's message so the caller can put it back in the message box.
+// Commits that are merges, have no parent or are already on the upstream are refused, since
+// rewriting those would need a force push or a revert instead.
+func (r Repo) UndoCommit(ctx context.Context) (string, error) {
+	if _, err := r.git(ctx, "rev-parse", "--verify", "-q", "HEAD~1"); err != nil {
+		return "", &Error{Msg: "there is no earlier commit to go back to"}
+	}
+	parents, err := r.git(ctx, "rev-list", "--parents", "-n", "1", "HEAD")
+	if err != nil {
+		return "", err
+	}
+	if len(strings.Fields(parents)) > 2 {
+		return "", &Error{Msg: "the last commit is a merge; it cannot be undone here"}
+	}
+	if _, err := r.git(ctx, "rev-parse", "--verify", "-q", "@{upstream}"); err == nil {
+		if _, err := r.git(ctx, "merge-base", "--is-ancestor", "HEAD", "@{upstream}"); err == nil {
+			return "", &Error{Msg: "the last commit is already on the remote; revert it instead"}
+		}
+	}
+	message, err := r.git(ctx, "log", "-1", "--format=%B")
+	if err != nil {
+		return "", err
+	}
+	if _, err := r.git(ctx, "reset", "--soft", "HEAD~1"); err != nil {
+		return "", err
+	}
+	return message, nil
 }
 
 const maxDiff = 1 << 20

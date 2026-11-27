@@ -13,8 +13,9 @@ export function useGitAction(projectId: string) {
     const queryClient = useQueryClient();
     const [notice, setNotice] = useState<Notice | null>(null);
     const mutation = useMutation({
-        mutationFn: (job: () => Promise<string | void>) => job(),
-        onSuccess: (text) => setNotice(text ? { kind: "ok", text } : null),
+        // a job may resolve to anything (the raw Response of a POST); only a string becomes a message
+        mutationFn: (job: () => Promise<unknown>) => job(),
+        onSuccess: (text) => setNotice(typeof text === "string" && text ? { kind: "ok", text } : null),
         onError: (e: Error) => setNotice({ kind: "error", text: e.message }),
         onSettled: () => resync(queryClient, projectId),
     });

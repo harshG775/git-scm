@@ -502,3 +502,64 @@ func TestLogOverHTTP(t *testing.T) {
 		t.Errorf("unknown project = %d", c)
 	}
 }
+
+func TestCommitAmendUndoAndNumstatOverHTTP(t *testing.T) {
+	e := gitEnv(t)
+	os.WriteFile(filepath.Join(e.root, "a.txt"), []byte("one\ntwo\n"), 0o644)
+	e.post("/git/stage", `{"paths":["a.txt"]}`)
+
+	res := e.do("GET", e.p("/git/numstat"), "", nil)
+	var n git.Numstat
+	json.NewDecoder(res.Body).Decode(&n)
+	if res.StatusCode != 200 || n.Staged["a.txt"].Added != 2 {
+		t.Errorf("numstat = %d %+v", res.StatusCode, n)
+	}
+
+	if code, _ := e.post("/git/commit", `{"message":""}`); code != 400 {
+		t.Errorf("empty message = %d, want 400", code)
+	}
+	if code, _ := e.post("/git/commit", `{"message":"add a"}`); code != 200 {
+		t.Fatalf("commit = %d", code)
+	}
+	if code, _ := e.post("/git/commit", `{"message":"","amend":true}`); code != 200 {
+		t.Errorf("amend without a message = %d, want 200", code)
+	}
+
+	code, body := e.post("/git/undo-commit", "")
+	if code != 200 || !strings.Contains(body, "add a") {
+		t.Errorf("undo = %d %s", code, body)
+	}
+	if st := e.status(); names(st.Staged) != "A a.txt" {
+		t.Errorf("staged after undo = %s", names(st.Staged))
+	}
+}
+
+func TestBranchManagementOverHTTP(t *testing.T) {
+	e := gitEnv(t)
+	e.sh("tag", "v1")
+
+	if code, body := e.post("/git/branches", `{"name":"from-tag","from":"v1"}`); code != 204 {
+		t.Fatalf("create from tag = %d %s", code, body)
+	}
+	if code, _ := e.post("/git/checkout", `{"name":"main"}`); code != 204 {
+		t.Fatal("switch back")
+	}
+	if code, body := e.post("/git/branches/rename", `{"name":"from-tag","to":"renamed"}`); code != 204 {
+		t.Errorf("rename = %d %s", code, body)
+	}
+	if code, body := e.post("/git/branches/delete", `{"name":"main"}`); code != 422 || !strings.Contains(body, "main") {
+		t.Errorf("deleting the current branch = %d %s", code, body)
+	}
+	if code, body := e.post("/git/branches/delete", `{"name":"renamed"}`); code != 204 {
+		t.Errorf("delete = %d %s", code, body)
+	}
+	if code, body := e.post("/git/tags/delete", `{"name":"v1"}`); code != 204 {
+		t.Errorf("delete tag = %d %s", code, body)
+	}
+	if code, _ := e.post("/git/merge", `{"name":"nope"}`); code != 422 {
+		t.Errorf("merge unknown = %d, want 422", code)
+	}
+	if code, _ := e.post("/git/branches/rename", `{"name":"x"}`); code != 400 {
+		t.Errorf("rename without a target = %d, want 400", code)
+	}
+}

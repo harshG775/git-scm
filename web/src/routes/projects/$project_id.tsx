@@ -17,7 +17,7 @@ import { GraphView } from "#/components/shell/GraphView";
 import { PanelResizer } from "#/components/shell/PanelResizer";
 import { usePanelSnap } from "#/contexts/PanelSnapContext";
 import { useLiveUpdates } from "#/lib/live";
-import { gitBranchesOptions, projectsOptions } from "#/lib/queries";
+import { gitBranchesOptions, gitStatusOptions, projectsOptions } from "#/lib/queries";
 import { useWorkspace } from "#/stores/workspace";
 import { cn } from "#/lib/utils";
 import { BranchesTab } from "./-component/tabs/BranchesTab";
@@ -33,10 +33,9 @@ export const Route = createFileRoute("/projects/$project_id")({
 
 type NavTab = "files" | "changes" | "branches";
 
-// mock counts, replace with real data
-const NAV_ITEMS: { id: NavTab; label: string; icon: LucideIcon; count?: number }[] = [
+const NAV_ITEMS: { id: NavTab; label: string; icon: LucideIcon }[] = [
     { id: "files", label: "Files", icon: Folder },
-    { id: "changes", label: "Changes", icon: FileDiff, count: 6 },
+    { id: "changes", label: "Changes", icon: FileDiff },
     { id: "branches", label: "Branches", icon: GitBranch },
 ];
 
@@ -144,6 +143,14 @@ function Workspace({ project_id }: { project_id: string }) {
     useEffect(() => enterProject(project_id), [enterProject, project_id]);
     const live = useLiveUpdates(project_id);
     const sync = useSync(project_id);
+    // files with changes, for the badge on the Changes tab; a file both staged and edited counts once
+    const { data: gitStatus } = useQuery(gitStatusOptions(project_id));
+    const changedFiles = new Set(
+        [...(gitStatus?.staged ?? []), ...(gitStatus?.changes ?? []), ...(gitStatus?.conflicts ?? [])].map(
+            (c) => c.path,
+        ),
+    ).size;
+    const counts: Partial<Record<NavTab, number>> = { changes: changedFiles || undefined };
     const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth);
     const [sidebarOpen, setSidebarOpenState] = useState(loadSidebarOpen);
     const resizeSidebar = (width: number) => {
@@ -270,15 +277,16 @@ function Workspace({ project_id }: { project_id: string }) {
                             <FilesTab projectId={project_id} activePath={activeTab?.path} onOpenFile={openFile} />
                         </Activity>
                         <Activity mode={mode("changes")}>
-                            <ChangesTab />
+                            <ChangesTab projectId={project_id} activePath={activeTab?.path} onOpenFile={openFile} />
                         </Activity>
                         <Activity mode={mode("branches")}>
-                            <BranchesTab onOpenGraph={openGraph} />
+                            <BranchesTab projectId={project_id} onOpenGraph={openGraph} />
                         </Activity>
                     </ErrorBoundary>
                 </section>
                 <nav className="sticky bottom-0 grid grid-cols-3 border-t border-sidebar-border bg-card pb-[env(safe-area-inset-bottom)]">
-                    {NAV_ITEMS.map(({ id, label, icon: Icon, count }) => {
+                    {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+                        const count = counts[id];
                         const isActive = id === active;
                         return (
                             <button

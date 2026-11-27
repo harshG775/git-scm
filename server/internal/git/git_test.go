@@ -262,14 +262,14 @@ func TestCommit(t *testing.T) {
 	r, dir := newRepo(t)
 	write(t, dir, "a.txt", "x")
 	sh(t, dir, "add", "a.txt")
-	oid, err := r.Commit(ctx, "-m looks like a flag\n\nbody line")
+	oid, err := r.Commit(ctx, "-m looks like a flag\n\nbody line", false)
 	if err != nil || oid == "" {
 		t.Fatalf("commit = %q, %v", oid, err)
 	}
 	if got := sh(t, dir, "log", "-1", "--format=%B"); !strings.HasPrefix(got, "-m looks like a flag") {
 		t.Errorf("message = %q", got)
 	}
-	if _, err := r.Commit(ctx, "again"); err == nil {
+	if _, err := r.Commit(ctx, "again", false); err == nil {
 		t.Error("committing with nothing staged should fail")
 	} else if !strings.Contains(err.Error(), "nothing") {
 		t.Errorf("error should be git's own message, got %q", err)
@@ -394,5 +394,109 @@ func TestOperationsTimeOut(t *testing.T) {
 	time.Sleep(time.Millisecond)
 	if _, err := r.Status(c); err == nil {
 		t.Error("expected an error from an expired context")
+	}
+}
+
+func TestCommitAmend(t *testing.T) {
+	r, dir := newRepo(t)
+	write(t, dir, "a.txt", "1")
+	commitAll(t, dir, "first")
+	write(t, dir, "b.txt", "2")
+	sh(t, dir, "add", "b.txt")
+
+	// an empty message keeps the old one and folds the staged file in
+	if _, err := r.Commit(ctx, "", true); err != nil {
+		t.Fatal(err)
+	}
+	if got := sh(t, dir, "log", "-1", "--format=%s"); got != "first" {
+		t.Errorf("subject = %q, want it kept", got)
+	}
+	if got := sh(t, dir, "show", "--name-only", "--format=", "HEAD"); !strings.Contains(got, "b.txt") {
+		t.Errorf("amend should include b.txt, got %q", got)
+	}
+
+	if _, err := r.Commit(ctx, "renamed", true); err != nil {
+		t.Fatal(err)
+	}
+	if got := sh(t, dir, "log", "-1", "--format=%s"); got != "renamed" {
+		t.Errorf("subject = %q", got)
+	}
+	if got := sh(t, dir, "rev-list", "--count", "HEAD"); got != "1" {
+		t.Errorf("amend must not add a commit, count = %s", got)
+	}
+}
+
+func TestUndoCommit(t *testing.T) {
+	r, dir := newRepo(t)
+	write(t, dir, "a.txt", "1")
+	commitAll(t, dir, "first")
+	if _, err := r.UndoCommit(ctx); err == nil {
+		t.Error("the first commit has no parent to go back to")
+	}
+
+	write(t, dir, "a.txt", "2")
+	commitAll(t, dir, "second\n\nwith a body")
+	msg, err := r.UndoCommit(ctx)
+	if err != nil || !strings.HasPrefix(msg, "second") || !strings.Contains(msg, "with a body") {
+		t.Fatalf("undo = %q, %v", msg, err)
+	}
+	if got := sh(t, dir, "log", "-1", "--format=%s"); got != "first" {
+		t.Errorf("HEAD subject = %q", got)
+	}
+	if st, _ := r.Status(ctx); len(st.Staged) != 1 || st.Staged[0].Path != "a.txt" {
+		t.Errorf("the undone changes should stay staged: %+v", st.Staged)
+	}
+}
+
+func TestUndoCommitRefusesPushedAndMerge(t *testing.T) {
+	r, dir := newRepo(t)
+	write(t, dir, "a.txt", "1")
+	commitAll(t, dir, "first")
+	write(t, dir, "a.txt", "2")
+	commitAll(t, dir, "second")
+
+	remote := t.TempDir()
+	sh(t, remote, "init", "-q", "--bare")
+	sh(t, dir, "remote", "add", "origin", remote)
+	sh(t, dir, "push", "-q", "-u", "origin", "main")
+	if _, err := r.UndoCommit(ctx); err == nil || !strings.Contains(err.Error(), "remote") {
+		t.Errorf("a pushed commit must be refused, got %v", err)
+	}
+
+	sh(t, dir, "switch", "-qc", "side")
+	write(t, dir, "b.txt", "b")
+	commitAll(t, dir, "side work")
+	sh(t, dir, "switch", "-q", "main")
+	write(t, dir, "c.txt", "c")
+	commitAll(t, dir, "main work")
+	sh(t, dir, "merge", "-q", "--no-ff", "-m", "merge side", "side")
+	if _, err := r.UndoCommit(ctx); err == nil || !strings.Contains(err.Error(), "merge") {
+		t.Errorf("a merge commit must be refused, got %v", err)
+	}
+}
+
+func TestNumstat(t *testing.T) {
+	r, dir := newRepo(t)
+	write(t, dir, "a.txt", "one\ntwo\nthree\n")
+	write(t, dir, "b.txt", "x\n")
+	commitAll(t, dir, "init")
+
+	write(t, dir, "a.txt", "one\nTWO\nthree\nfour\n") // +2 -1
+	sh(t, dir, "add", "a.txt")
+	write(t, dir, "b.txt", "x\ny\n") // +1
+	write(t, dir, "new.txt", "untracked\n")
+
+	n, err := r.Numstat(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := n.Staged["a.txt"]; got != (Lines{Added: 2, Removed: 1}) {
+		t.Errorf("staged a.txt = %+v", got)
+	}
+	if got := n.Changes["b.txt"]; got != (Lines{Added: 1}) {
+		t.Errorf("changes b.txt = %+v", got)
+	}
+	if _, ok := n.Changes["new.txt"]; ok {
+		t.Error("untracked files have no line counts")
 	}
 }
