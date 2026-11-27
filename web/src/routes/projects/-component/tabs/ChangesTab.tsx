@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Archive, Check, ChevronDown, Ellipsis, GitCommitVertical } from "lucide-react";
+import { Archive, Check, ChevronDown, Ellipsis, GitCommitVertical, Minus, Plus, Undo2 } from "lucide-react";
 import { Button, buttonVariants } from "#/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
 import {
@@ -9,10 +9,12 @@ import {
     DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
 import { Input } from "#/components/ui/input";
-import { FileTree, type TreeEntry } from "#/components/file-tree/file-tree";
+import { NativeDialog } from "#/components/ui/native-dialog";
+import { FileTree, type TreeEntry, type TreeNode } from "#/components/file-tree/file-tree";
 import { StatusLetter } from "#/components/file-tree/status-letter";
 import { Textarea } from "#/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
+import { cn } from "#/lib/utils";
 import { TabHeader } from "./TabHeader";
 
 type ActionTab = "commit" | "stash";
@@ -34,6 +36,10 @@ const STASHES = [
     { message: "Save editor layout experiment", branch: "feature/editor-layout", age: "Yesterday" },
 ];
 
+// every file path at or below a tree row (a file row is just itself)
+const nodePaths = (node: TreeNode<ChangeFile>): string[] =>
+    node.kind === "file" ? (node.entry?.data ? [node.entry.data.path] : []) : node.children.flatMap(nodePaths);
+
 export function ChangesTab() {
     const [activeAction, setActiveAction] = useState<ActionTab>("commit");
     const [changesView, setChangesView] = useState<ChangesView>("list");
@@ -42,7 +48,30 @@ export function ChangesTab() {
     const [amendLastCommit, setAmendLastCommit] = useState(false);
     const [includeUntracked, setIncludeUntracked] = useState(true);
     const [notice, setNotice] = useState("");
-    const stashFileCount = CHANGED_FILES.filter(({ status }) => status !== "U" || includeUntracked).length;
+    const [staged, setStaged] = useState(STAGED_FILES);
+    const [changed, setChanged] = useState(CHANGED_FILES);
+    // paths waiting on the discard confirmation
+    const [discarding, setDiscarding] = useState<string[] | null>(null);
+    const stashFileCount = changed.filter(({ status }) => status !== "U" || includeUntracked).length;
+
+    // preview only: moves rows between the two lists, nothing touches git
+    const stage = (paths: string[]) => {
+        const moving = changed.filter((file) => paths.includes(file.path));
+        setChanged((current) => current.filter((file) => !paths.includes(file.path)));
+        setStaged((current) => [...current, ...moving]);
+    };
+    const unstage = (paths: string[]) => {
+        const moving = staged.filter((file) => paths.includes(file.path));
+        setStaged((current) => current.filter((file) => !paths.includes(file.path)));
+        setChanged((current) => [...current, ...moving]);
+    };
+    const confirmDiscard = () => {
+        if (!discarding) return;
+        setChanged((current) => current.filter((file) => !discarding.includes(file.path)));
+        setDiscarding(null);
+        setNotice("Discard is a UI preview. No files were changed on disk.");
+    };
+    const discardingUntracked = changed.some(({ path, status }) => discarding?.includes(path) && status === "U");
 
     const submitPreview = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -58,16 +87,40 @@ export function ChangesTab() {
         setCommitMessage(`${type}: ${message}`);
     };
 
-    const renderFiles = (title: string, files: ChangeFile[]) => (
-        <FileTree<ChangeFile>
-            label={title}
-            view={changesView}
-            entries={files.map((file): TreeEntry<ChangeFile> => ({ path: file.path, data: file }))}
-            defaultOpen
-            showFolderCount
-            renderMeta={({ entry }) => entry?.data && <ChangeMeta file={entry.data} />}
-        />
-    );
+    const sections = [
+        {
+            title: "Staged Changes",
+            files: staged,
+            // per-row and per-section buttons
+            rowActions: (paths: string[]) => (
+                <RowButton label="Unstage" icon={Minus} onClick={() => unstage(paths)} />
+            ),
+            headerActions: (
+                <RowButton label="Unstage all" icon={Minus} onClick={() => unstage(staged.map((f) => f.path))} />
+            ),
+        },
+        {
+            title: "Changes",
+            files: changed,
+            rowActions: (paths: string[]) => (
+                <>
+                    <RowButton label="Discard" icon={Undo2} danger onClick={() => setDiscarding(paths)} />
+                    <RowButton label="Stage" icon={Plus} accent onClick={() => stage(paths)} />
+                </>
+            ),
+            headerActions: (
+                <>
+                    <RowButton
+                        label="Discard all"
+                        icon={Undo2}
+                        danger
+                        onClick={() => setDiscarding(changed.map((f) => f.path))}
+                    />
+                    <RowButton label="Stage all" icon={Plus} accent onClick={() => stage(changed.map((f) => f.path))} />
+                </>
+            ),
+        },
+    ];
 
     return (
         <>
@@ -151,11 +204,11 @@ export function ChangesTab() {
                         />
                         <Button
                             type="submit"
-                            disabled={!commitMessage.trim() || STAGED_FILES.length === 0}
+                            disabled={!commitMessage.trim() || staged.length === 0}
                             className="w-full"
                         >
                             <GitCommitVertical className="size-4" aria-hidden="true" />
-                            Commit {STAGED_FILES.length} {STAGED_FILES.length === 1 ? "file" : "files"}
+                            Commit {staged.length} {staged.length === 1 ? "file" : "files"}
                         </Button>
                         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                             <label className="flex min-h-8 items-center gap-2 text-muted-foreground">
@@ -216,22 +269,34 @@ export function ChangesTab() {
                 )}
             </section>
 
-            {[
-                { title: "Staged Changes", files: STAGED_FILES },
-                { title: "Changes", files: CHANGED_FILES },
-            ].map(({ title, files }) => (
-                <Collapsible key={title} defaultOpen className="border-b border-sidebar-border">
-                    <CollapsibleTrigger className="group flex min-h-10 w-full items-center gap-1 px-2 text-left text-sm font-medium">
-                        <ChevronDown
-                            className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
-                            aria-hidden="true"
-                        />
-                        <span>{title}</span>
-                        <span className="ml-auto text-xs text-muted-foreground">{files.length}</span>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>{renderFiles(title, files)}</CollapsibleContent>
-                </Collapsible>
-            ))}
+            {sections
+                .filter(({ files }) => files.length > 0)
+                .map(({ title, files, rowActions, headerActions }) => (
+                    <Collapsible key={title} defaultOpen className="border-b border-sidebar-border">
+                        <div className="flex items-center pr-2">
+                            <CollapsibleTrigger className="group flex min-h-10 min-w-0 flex-1 items-center gap-1 px-2 text-left text-sm font-medium">
+                                <ChevronDown
+                                    className="size-4 shrink-0 -rotate-90 transition-transform group-aria-expanded:rotate-0"
+                                    aria-hidden="true"
+                                />
+                                <span>{title}</span>
+                                <span className="ml-auto text-xs text-muted-foreground">{files.length}</span>
+                            </CollapsibleTrigger>
+                            <div className="ml-2 flex items-center gap-1">{headerActions}</div>
+                        </div>
+                        <CollapsibleContent>
+                            <FileTree<ChangeFile>
+                                label={title}
+                                view={changesView}
+                                entries={files.map((file): TreeEntry<ChangeFile> => ({ path: file.path, data: file }))}
+                                defaultOpen
+                                showFolderCount
+                                renderMeta={({ entry }) => entry?.data && <ChangeMeta file={entry.data} />}
+                                renderActions={(node) => rowActions(nodePaths(node))}
+                            />
+                        </CollapsibleContent>
+                    </Collapsible>
+                ))}
             <Collapsible className="border-b border-sidebar-border">
                 <CollapsibleTrigger className="group flex min-h-10 w-full items-center gap-1 px-2 text-left text-sm font-medium">
                     <ChevronDown
@@ -255,7 +320,54 @@ export function ChangesTab() {
                     ))}
                 </CollapsibleContent>
             </Collapsible>
+            <NativeDialog
+                open={discarding !== null}
+                onOpenChange={(open) => !open && setDiscarding(null)}
+                title="Discard changes?"
+                description={
+                    discardingUntracked
+                        ? "Untracked files will be deleted. This cannot be undone."
+                        : "Your edits will be lost. This cannot be undone."
+                }
+            >
+                <div className="flex justify-end gap-2 px-5 py-4">
+                    <Button type="button" variant="outline" onClick={() => setDiscarding(null)}>
+                        Cancel
+                    </Button>
+                    <Button type="button" variant="destructive" onClick={confirmDiscard}>
+                        Discard {discarding?.length} {discarding?.length === 1 ? "file" : "files"}
+                    </Button>
+                </div>
+            </NativeDialog>
         </>
+    );
+}
+
+function RowButton({
+    label,
+    icon: Icon,
+    onClick,
+    danger,
+    accent,
+}: {
+    label: string;
+    icon: typeof Plus;
+    onClick: () => void;
+    danger?: boolean;
+    accent?: boolean;
+}) {
+    return (
+        <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label={label}
+            title={label}
+            onClick={onClick}
+            className={cn(danger && "text-destructive", accent && "border-sidebar-primary/40 bg-sidebar-primary/15")}
+        >
+            <Icon aria-hidden="true" />
+        </Button>
     );
 }
 
